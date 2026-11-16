@@ -4,10 +4,23 @@
 
 这是一个面向工程实践的可复现教学项目，包含两条连续流水线：
 
+**推荐从 Jupyter Notebook 开始：边学边运行、每一步即时查看图像、表格、Loss 和 Caption。** GitHub 可直接预览 `.ipynb` 文件；在阿里云 DSW/JupyterLab 中打开后可逐个 Cell 执行。
+
+| Notebook 主教程 | 主要内容 | 使用方式 |
+|---|---|---|
+| **[01 · 自动驾驶图像多模态数据处理](notebooks/01_multimodal_data_processing.ipynb)** | nuScenes → CAM_FRONT → Paimon → Caption/Metadata → 1152 维 Embedding → Top-5 检索 | 从 Step 0 开始逐个 Cell 执行 |
+| **[02 · Qwen2-VL 模型训练与推理](notebooks/02_multimodal_model_training_inference.ipynb)** | Paimon/JSONL → 19/1 划分 → NF4 模型 → Base 推理 → QLoRA → LoRA 推理对比 | 在 DSW 单卡 V100 中顺序执行 |
+
+> **首次使用**：先完成下面第 2 节阿里云控制台配置；在 DSW Terminal 安装依赖后，**Notebook 菜单 Kernel → Restart Kernel**，再打开 Notebook 01 的 Step 1 加载 `.env`。已经有训练数据和 LoRA Adapter 的用户可以直接从 Notebook 02 开始并复用缓存。昂贵的 API、写入及训练操作默认关闭，需要显式开启。
+
+现有的两个 Python 代码目录**保留为可复用实现**；Notebook 是交互式教程主入口，README 用于环境准备、技术说明和排错。
+
+
+
 1. **Multimodal Data Processing of Autonomous Driving Images**：前视图像 → Paimon → Caption / Metadata → Embedding → 向量检索。
 2. **Multimodal Model Training & Inference Pipeline**：Paimon → 固定训练/验证划分 → Qwen2-VL 基线推理 → QLoRA → 同图推理对比。
 
-> **已验证范围**：2026-11-11，在阿里云 PAI DSW 的 **Tesla V100 16 GiB** 上跑通 PyTorch CUDA、Qwen2-VL-2B-Instruct NF4 量化、单卡 QLoRA 和定性推理对比；20 张 nuScenes CAM_FRONT，训练 19 张、验证 1 张。项目源码是对交互式 Notebook 的模块化重构；**本仓库重构版尚未在真实 DLF / DSW 全流程重新验收**。无 DLC 或 EAS 依赖，原教程中的 8 卡 DLC 与 EAS 部署属于后续扩展。
+> **已验证范围**：2026-11-11，在阿里云 PAI DSW 的 **Tesla V100 16 GiB** 上跑通 PyTorch CUDA、Qwen2-VL-2B-Instruct NF4 量化、单卡 QLoRA 和定性推理对比；20 张 nuScenes CAM_FRONT，训练 19 张、验证 1 张。项目已包含基于既往交互实验整理的主教程 Notebook 和模块化 Python 源码；**本仓库重构版尚未在真实 DLF / DSW 全流程重新验收**。无 DLC 或 EAS 依赖，原教程中的 8 卡 DLC 与 EAS 部署属于后续扩展。
 
 ## 目录
 
@@ -57,7 +70,7 @@ flowchart TD
 | LoRA + Forward / Loss / Backward | [train_lora.py](multimodal_training_inference/train_lora.py#L18-L142) |
 | Adapter 后处理与对比 | [evaluate.py](multimodal_training_inference/evaluate.py#L16-L58) |
 
-项目只包含 **一份总 README、统一配置、两个代码目录和必要的依赖 / 测试文件**；所有命令从仓库根目录执行。源码和 README 使用相对链接，GitHub 上可直接跳到对应行号。
+项目包含 **一份总 README、两份主教程 Notebook、统一配置、两个 Python 模块和必要的依赖 / 测试文件**；所有命令从仓库根目录执行。源码和 README 使用相对链接，GitHub 上可直接跳到对应行号。
 
 ## 2. 阿里云用户准备工作（控制台操作）
 
@@ -163,7 +176,7 @@ print("模型目录:", settings.model_cache_dir)
 - 默认 `WORK_DIR=/mnt/systemDisk/ad_multimodal`；模型缓存默认 `/mnt/systemDisk/model_cache`。这些是 **DSW 挂载云盘路径**，不是本地电脑路径，也不会自动成为 DLC / EAS 的数据挂载路径。
 - `.env` 在 `.gitignore` 中排除；命令行使用可配置参数，不把密钥、OSS 签名或模型缓存写回 Git 仓库。
 
-### 3.3 可选：Notebook 里复用 Python 配置
+### 3.3 Notebook：按 Cell 加载 Python 配置
 
 ```python
 from config import settings, check_environment
@@ -172,7 +185,7 @@ print(settings.raw_table, settings.enriched_table)
 # 绝对不要 print(settings.access_key_secret)！
 ```
 
-Notebook 仅作交互调试，推荐正式运行使用终端 `python -m ...`。模型缓存不会因为 Kernel 重启消失，但 `model`、`processor`、`train_records` 等变量会消失。重新运行对应脚本即可恢复。
+**优先使用上面的两个 Notebook 学习和实验**，需要批量自动化时再使用终端 `python -m ...`。模型缓存不会因为 Kernel 重启消失，但 `model`、`processor`、`train_records` 等变量会消失。重新运行对应脚本即可恢复。
 
 ## 4. Part 1：Multimodal Data Processing of Autonomous Driving Images
 
