@@ -120,19 +120,23 @@ EMBEDDING_API_KEY=你的百炼密钥
 
 **依赖安装后，在 Notebook 菜单选择 `Kernel → Restart Kernel`，然后从 Step 1 加载 `.env`。** 重启只会清空 Python 变量，不会删除持久云盘中的数据 / 缓存 / Adapter。两个 Notebook 在本文件内部通过 `load_dotenv(ROOT / '.env')` 和 `os.getenv` 初始化参数，**无需 `from config import settings`**。
 
-### 3.3 成本与安全开关
+### 3.3 首次运行开关、成本与安全
 
-所有可能产生较大费用或修改数据的操作默认关闭，例如：
+**Notebook 01 面向首次运行，7 个 `RUN_...` 开关默认全部开启：**
 
 ```python
-RUN_DOWNLOAD = False
-RUN_CAPTION_LABELING = False
-RUN_CREATE_ENRICHED = False
-RUN_VECTOR_BACKFILL = False
-RUN_TRAINING = False
+RUN_DOWNLOAD = True
+RUN_RAW_WRITE = True
+RUN_CAPTION_LABELING = True
+RUN_CREATE_ENRICHED = True
+RUN_SAMPLE_EMBEDDING = True
+RUN_VECTOR_BACKFILL = True
+RUN_TEXT_RETRIEVAL = True
 ```
 
-**只有确认资源、权限和费用后再手动打开单个开关。** Paimon Append 表回填向量会先备份再整表 Overwrite；不能并发写入；已存在 Adapter 时不覆盖。
+Notebook 01 按 Step 0–10 顺序执行，完成后可根据需要关闭下载、API 请求或写入。**注意：首次运行可能产生网络/存储/推理费用；Step 9 会备份后 Overwrite 实验 Paimon 表，不能并发写入，勿用于生产表。** 每个 Code Cell 前都包含目的、前置条件、结果与成本说明。默认仅对 20 张图片做视觉标注，不会自动标注完整 mini。
+
+**Notebook 02 仍保留训练等高成本操作的独立默认开关**，本次不改动 Notebook 02。
 
 ## 4. Notebook 01：图像多模态处理
 
