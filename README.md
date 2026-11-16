@@ -128,12 +128,32 @@ cp .env.example .env
 python -m pip install -r requirements-data.txt -c constraints-v100.txt
 python -m pip install -r requirements-train.txt -c constraints-v100.txt
 python -m pip check
+```
+
+**安装依赖后：重启 DSW/JupyterLab 的 Python Kernel。** 在 Notebook 菜单选择 **Kernel → Restart Kernel**（或工具栏的重启按钮）。这不是终端命令；重启仅清空当前 Notebook 的 Python 变量，不会删除云盘上的 `.env`、数据集、模型缓存或 LoRA 权重。安装依赖是在 Terminal 中执行的，重启 Kernel 是为了让 Notebook 使用更新后的 Python 环境。
+
+**重启完成后，再加载参数并检查环境：**
+
+在项目目录下的 **Terminal** 执行：
+
+```bash
 python config.py --check
+```
+
+如果需要在 **Notebook** 中继续使用配置，确保 Notebook 工作目录为项目根目录，然后执行一个新 Cell：
+
+```python
+from config import settings, check_environment
+
+check_environment()             # 检查环境变量是否已从 .env 加载
+print("DLF Warehouse:", settings.dlf_warehouse)
+print("模型目录:", settings.model_cache_dir)
+# 不要输出 AccessKey Secret / API Key
 ```
 
 - 本项目使用的已验证 Python 是 **3.11.14**。依赖基线 `pypaimon==1.4.2`、`transformers==4.52.4`、`peft==0.15.2`、`bitsandbytes==0.48.0`。PyPaimon 2.x 可能有 API 变化，此项目暂不声称兼容。
 - `requirements-data.txt` 与 `requirements-train.txt` 分开方便只运行数据处理或训练。`constraints-v100.txt` 是版本约束，**不会自动选择 CUDA Wheel 下载源**；请先执行上面 PyTorch 专用安装命令。
-- 使用 DSW Python Terminal 安装后，Notebook 可能需要 **Restart Kernel**；重启会清除变量，但不会自动删除持久云盘中的文件。
+- **先安装依赖，再重启 Notebook Kernel，最后加载配置**：Terminal 的独立 Python 命令本身不依赖 Notebook Kernel，但 Notebook 必须重新导入模块才会使用新环境与新变量。
 - `python config.py --check` **仅执行只读的环境测试**，会显示缺失项但不会打印密钥原文。[环境检查源码](config.py#L94-L127)。
 
 ### 3.2 一处配置，两个模块复用
