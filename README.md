@@ -175,9 +175,9 @@ aliyun-autonomous-driving-multimodal-pipeline/
 | 步骤 | 在控制台要做的事情 | 实验说明 |
 |---|---|---|
 | 2.1 PAI / DSW | 开通 PAI，创建 Workspace 和 DSW 实例，选择支持的地域、云盘 | 本次使用 `cn-hangzhou`，数据与模型缓存放持久云盘 |
-| 2.2 GPU 规格 | 选择 GPU 实例并查看可用规格和成本 | 已实测 **Tesla V100-SXM2-16GB**；不一定所有地域均可选择 |
-| 2.3 RAM 身份 | 创建最小权限 RAM 用户/角色并授权 DLF/OSS 访问 | 长期 AK：ID+Secret；STS 临时凭证需额外 Security Token；**不要在 GitHub 存密钥** |
-| 2.4 DLF 2.0 | 开通 **DLF 2.0**，创建 REST Catalog、Database、Warehouse，授予建表/读写权限 | 例：`vehicle_lake_demo`，`default` 数据库；按控制台提示启用 REST/OpenAPI |
+| 2.2 GPU 规格 | 选择 GPU 实例并查看可用规格和成本 | 已实测 **Tesla V100-SXM2-16GB**,建议选择A10显卡 |
+| 2.3 RAM 身份 | 创建最小权限 RAM 用户/角色并授权 DLF/OSS 访问 | 长期 AK：ID+Secret |
+| 2.4 DLF 2.0 | 开通 **DLF 2.0**，创建 REST Catalog、Database、Warehouse，授予建表/读写权限 | 例：`vehicle_lake_demo`，`default` 数据库|
 | 2.5 网络 / OSS | 配置 DSW 所在 VPC 与 DLF 受信 VPC，OSS Bucket 和访问策略 | 遇到 `Trusted VPC`、`AccessDenied`、`DatabaseNoPermission` 时先检查权限 |
 | 2.6 视觉模型 | 准备支持 OpenAI **Responses API**（图片输入）的接口和模型名 | 可使用你有权限的视觉模型服务；本项目不附带付费账号 |
 | 2.7 通义 Embedding | 在百炼开通多模态 Embedding，获取 DashScope API Key / Endpoint | 本实验使用 `tongyi-embedding-vision-plus`，图片/文本统一输出 **1152 维** |
