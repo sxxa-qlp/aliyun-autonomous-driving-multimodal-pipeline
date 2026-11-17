@@ -46,7 +46,7 @@
    1. caption + metadata：调用第三方视觉模型处理图片，比如“gpt-6.1-sol”
    2. embedding：调用tongyi-embedding-vision-plus模型返回向量
 
-> <b>已验证范围</b>：2026-11-11，在阿里云 PAI DSW 的 <b>Tesla V100 16 GiB</b> 上跑通 PyTorch CUDA、Qwen2-VL-2B-Instruct NF4 量化、单卡 QLoRA 和定性推理对比；20 张 nuScenes CAM\_FRONT，训练 19 张、验证 1 张。项目源码是对交互式 Notebook 的模块化重构；<b>本仓库重构版尚未在真实 DLF / DSW 全流程重新验收</b>。无 DLC 或 EAS 依赖，原教程中的 8 卡 DLC 与 EAS 部署属于后续扩展。
+> <b>已验证范围</b>：2026-11-11，在阿里云 PAI DSW 的 <b>NVIDIA A10 24GB</b> 上跑通 PyTorch CUDA、Qwen2-VL-2B-Instruct NF4 量化、单卡 QLoRA 和定性推理对比；20 张 nuScenes CAM\_FRONT，训练 19 张、验证 1 张。TODO：后面尝试用DLC做多卡训练。
 
 <b>关键词：</b>nuScenes · Alibaba Cloud PAI DSW · DLF 2.0 / Paimon · Vision LLM · Multimodal Embedding · Qwen2-VL · QLoRA
 
@@ -66,14 +66,14 @@
 
 ## 0.准备工作
 
-### 1.创建DWS
+### 1.创建DSW
 
 1. 在 [阿里云控制台](https://home.console.aliyun.com/) 登录。
 2. 打开 [PAI 控制台](https://pai.console.aliyun.com/)，选择 <b>华东 1（杭州）</b><b><code>cn-hangzhou</code></b>，创建或选择工作空间。
 3. 在工作空间中进入 <b>交互式建模（DSW）</b>，创建实例。
 4. 选择兼容 CUDA 的镜像 / Python 3.11 环境；配置系统云盘。
 
-目前的活动是aliyun PAI平台连续三个月，每月送250计算时，合计750cu。这个计算时是用来租dsw机器的计费单位，比如750cu大致可使用<b>ecs.gn7i-c8g1.2xlarge</b>，即<b>8c30g A10-24g</b>独显的dsw机器约107h，优先选这个配置的机器，因为独显高且消耗额度少。我选的时候这个机器缺货，所以就选了<b>ecs.gn6v-c8g1.2xlarge</b>的。
+目前的活动是aliyun PAI平台连续三个月，每月送250计算时，合计750cu。这个计算时是用来租dsw机器的计费单位，比如750cu大致可使用<b>ecs.gn7i-c8g1.2xlarge</b>，即<b>8c30g A10-24g</b>独显的dsw机器约107h，优先选这个配置的机器，因为独显高且消耗额度少，而且支持FP16 BF16 TF32,相比V100多支持后者，因为A系列是SM8.6 cuda，gpu的架构大升级。
 
 
 ![Notion 原文配图 02](images/notion-02.png)
@@ -148,7 +148,7 @@
 | Notebook | 内容 | 运行环境 |
 |---|---|---|
 | **[01 · Multimodal Data Processing of Autonomous Driving Images](notebooks/01_multimodal_data_processing.ipynb)** | 下载 / 选择 nuScenes CAM_FRONT → 创建原始 Paimon 表 → GPT Caption/Metadata → 增强表 → 1152-d Embedding → Top-5 图文检索 | 阿里云 DSW，Python 3.11 |
-| **[02 · Multimodal Model Training & Inference Pipeline](notebooks/02_multimodal_model_training_inference.ipynb)** | 数据导出 / 19:1 划分 → Qwen2-VL-2B 基线推理 → NF4 + FP16 → QLoRA → Loss / LoRA Adapter → 同图 Caption 对比 | DSW **V100 16GB**（本次验证） |
+| **[02 · Multimodal Model Training & Inference Pipeline](notebooks/02_multimodal_model_training_inference.ipynb)** | 数据导出 / 19:1 划分 → Qwen2-VL-2B 基线推理 → NF4 + FP16 → QLoRA → Loss / LoRA Adapter → 同图 Caption 对比 | DSW **A10 24G**（本次验证） |
 
 **推荐操作**：在 DSW JupyterLab 左侧文件浏览器中打开对应 `.ipynb`，从 Step 0 开始按顺序执行。Notebook 会逐步解释需要的环境、输入、实际调用和结果，不需要运行额外 `.py` 业务脚本。首次运行请先完成后面 2–3 节。
 
@@ -159,7 +159,7 @@ aliyun-autonomous-driving-multimodal-pipeline/
 ├── .gitignore
 ├── requirements-data.txt
 ├── requirements-train.txt
-├── constraints-v100.txt
+├── constraints-cu126.txt
 └── notebooks/
     ├── 01_multimodal_data_processing.ipynb
     └── 02_multimodal_model_training_inference.ipynb
@@ -174,7 +174,7 @@ aliyun-autonomous-driving-multimodal-pipeline/
 | 步骤 | 在控制台要做的事情 | 实验说明 |
 |---|---|---|
 | 2.1 PAI / DSW | 开通 PAI，创建 Workspace 和 DSW 实例，选择支持的地域、云盘 | 本次使用 `cn-hangzhou`，数据与模型缓存放持久云盘 |
-| 2.2 GPU 规格 | 选择 GPU 实例并查看可用规格和成本 | 已实测 **Tesla V100-SXM2-16GB**,建议选择A10显卡 |
+| 2.2 GPU 规格 | 选择 GPU 实例并查看可用规格和成本 | 已实测 **NVIDIA A10 24GB** 显卡 |
 | 2.3 RAM 身份 | 创建最小权限 RAM 用户/角色并授权 DLF/OSS 访问 | 长期 AK：ID+Secret |
 | 2.4 DLF 2.0 | 开通 **DLF 2.0**，创建 REST Catalog、Database、Warehouse，授予建表/读写权限 | 例：`vehicle_lake_demo`，`default` 数据库|
 | 2.5 视觉模型 | 准备支持 OpenAI **Responses API**（图片输入）的接口和模型名 | 可使用你有权限的视觉模型服务；本项目不附带付费账号 |
@@ -193,9 +193,9 @@ git clone https://github.com/sxxa-qlp/aliyun-autonomous-driving-multimodal-pipel
 cd aliyun-autonomous-driving-multimodal-pipeline
 cp -n .env.example .env
 
-# 按 README 核对 torch==2.9.1+cu126、GPU sm_70；切勿盲目重装 CUDA/PyTorch
-python -m pip install -r requirements-data.txt -c constraints-v100.txt
-python -m pip install -r requirements-train.txt -c constraints-v100.txt
+# 按 README 核对 torch==2.9.1+cu126、A10 GPU sm_86；切勿盲目重装 CUDA/PyTorch
+python -m pip install -r requirements-data.txt -c constraints-cu126.txt
+python -m pip install -r requirements-train.txt -c constraints-cu126.txt
 python -m pip check
 ```
 
@@ -1576,7 +1576,6 @@ else:
 - **找不到变量、模型或 Processor**：Kernel 重启会清空内存；从 Notebook Step 1 顺序运行，或复用已经保存的 JSONL、模型缓存和 Adapter。
 - **`NOT configured`**：检查 `.env` 文件是否放在仓库根目录，以及变量名是否与 [.env.example](.env.example) 一致。Notebook 仅确认配置非空；DLF 真正的网络/权限验证在 Notebook 01 Step 4。
 - **DLF AccessDenied / Trusted VPC / DatabaseNoPermission**：检查 REST API 开通、Warehouse、OSS 与 RAM 授权、DSW 网络环境。
-- **模型加载出现 CUDA 不兼容**：检查 `torch.version.cuda`、`torch.cuda.get_arch_list()` 是否包含 `sm_70`；勿在 V100 上选择 BF16 或 FlashAttention-2。
 - **LoRA 重复挂载**：不要在已挂 Adapter 的模型上重复调用 `get_peft_model()`；重启 Kernel 后重新加载基础模型和 Adapter。
 
 ## 7. 安全、成本、测试与参考资料

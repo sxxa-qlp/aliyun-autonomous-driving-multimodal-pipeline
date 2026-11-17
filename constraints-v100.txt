@@ -1,5 +1,0 @@
-# Pinned to tested DSW Tesla V100 CUDA 12.6 environment. Install wheels from
-# https://download.pytorch.org/whl/cu126 before using these constraints.
-torch==2.9.1
-torchvision==0.24.1
-torchaudio==2.9.1

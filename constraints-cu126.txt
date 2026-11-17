@@ -1,0 +1,6 @@
+# PyTorch package versions for the DSW A10 CUDA 12.6 tutorial environment.
+# Install CUDA wheels from https://download.pytorch.org/whl/cu126 as needed;
+# version constraints alone do not select the CUDA wheel index.
+torch==2.9.1
+torchvision==0.24.1
+torchaudio==2.9.1
