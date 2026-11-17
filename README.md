@@ -567,6 +567,8 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 [Notebook 02 - Step 0](notebooks/02_multimodal_model_training_inference.ipynb#step-0--环境准备--restart-kernel)
 
+![Part 2 Step 0 - 1](images/part2-step-00-01.png)
+
 <!-- 待添加：环境准备截图与实践评论。 -->
 
 ### Step 1 · 加载 `.env` 并检查 A10 GPU
@@ -574,6 +576,8 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 加载配置并检查 Python、依赖版本、CUDA、GPU 型号及计算能力，通过 GPU 张量运算确认环境可用。配置显示 `configured` 仅表示变量非空，不代表云端认证成功。
 
 [Notebook 02 - Step 1](notebooks/02_multimodal_model_training_inference.ipynb#step-1--加载-env-并检查-a10-gpu)
+
+![Part 2 Step 1 - 1](images/part2-step-01-01.png)
 
 <!-- 待添加：A10 环境检查输出截图与实践评论；不要展示密钥。 -->
 
@@ -583,6 +587,8 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 [Notebook 02 - Step 2](notebooks/02_multimodal_model_training_inference.ipynb#step-2--从本地-jsonl-复用-191-划分或从-paimon-重新导出)
 
+![Part 2 Step 2 - 1](images/part2-step-02-01.png)
+
 <!-- 待添加：导出结果、训练/验证样本数截图与实践评论。 -->
 
 ### Step 3 · 可视化样本、Caption 统计与数据集分布
@@ -590,6 +596,10 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 预览图片与 Caption，检查样本数量及 Caption 长度分布。20 张相似连续帧用于跑通工程流程，不代表覆盖了不同道路、天气和光照条件。
 
 [Notebook 02 - Step 3](notebooks/02_multimodal_model_training_inference.ipynb#step-3--可视化样本caption-统计与数据集分布)
+
+![Part 2 Step 3 - 1](images/part2-step-03-01.png)
+
+![Part 2 Step 3 - 2](images/part2-step-03-02.png)
 
 <!-- 待添加：样本预览、Caption 统计截图与实践评论。 -->
 
@@ -599,6 +609,10 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 [Notebook 02 - Step 4](notebooks/02_multimodal_model_training_inference.ipynb#step-4--modelscope-模型缓存与-nf4fp16-量化加载)
 
+![Part 2 Step 4 - 1](images/part2-step-04-01.png)
+
+![Part 2 Step 4 - 2](images/part2-step-04-02.png)
+
 <!-- 待添加：模型加载输出、显存占用截图与实践评论。 -->
 
 ### Step 5 · 基础模型同图推理：固定 Prompt + 解码参数
@@ -606,6 +620,8 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 使用未加载 LoRA 的基础模型生成基线，保存为 `baseline_prediction.json`。记录验证图片、Prompt 和生成参数，后续微调推理使用相同配置。
 
 [Notebook 02 - Step 5](notebooks/02_multimodal_model_training_inference.ipynb#step-5--基础模型同图推理固定-prompt--解码参数)
+
+![Part 2 Step 5 - 1](images/part2-step-05-01.png)
 
 <!-- 待添加：验证图片、基础模型输出截图与实践评论。 -->
 
@@ -615,6 +631,8 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 [Notebook 02 - Step 6](notebooks/02_multimodal_model_training_inference.ipynb#step-6--qlora参数高效微调与-adapter-防重复挂载)
 
+![Part 2 Step 6 - 1](images/part2-step-06-01.png)
+
 <!-- 待添加：LoRA 配置、可训练参数数量截图与实践评论。 -->
 
 ### Step 7 · 监督标签检查：只对 Assistant Caption 计算 Loss
@@ -622,6 +640,8 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 检查实际参与监督的文本。图像 Token、用户 Prompt 和分隔 Token 不应进入监督目标，前缀标签通过 `labels[:prefix_len]=-100` 屏蔽，仅对 Assistant Caption 计算 Loss。
 
 [Notebook 02 - Step 7](notebooks/02_multimodal_model_training_inference.ipynb#step-7--监督标签检查只对-assistant-caption-计算-loss)
+
+![Part 2 Step 7 - 1](images/part2-step-07-01.png)
 
 <!-- 待添加：有效监督文本、Token 检查截图与实践评论。 -->
 
@@ -631,6 +651,8 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 [Notebook 02 - Step 8](notebooks/02_multimodal_model_training_inference.ipynb#step-8--单样本-forward--loss--backward不更新权重)
 
+![Part 2 Step 8 - 1](images/part2-step-08-01.png)
+
 <!-- 待添加：单样本 Loss、梯度检查截图与实践评论；若跳过可注明。 -->
 
 ### Step 9 · 使用 19 张图片执行 QLoRA，并保存 Adapter
@@ -639,6 +661,10 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 [Notebook 02 - Step 9](notebooks/02_multimodal_model_training_inference.ipynb#step-9--使用-19-张图片执行-qlora并保存-adapter)
 
+![Part 2 Step 9 - 1](images/part2-step-09-01.png)
+
+![Part 2 Step 9 - 2](images/part2-step-09-02.png)
+
 <!-- 待添加：训练日志、Loss、耗时、显存及 Adapter 保存结果截图与实践评论。 -->
 
 ### Step 10 · 同图、同 Prompt 微调后推理与结果对比
@@ -646,6 +672,8 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 保存 LoRA Adapter 后，使用相同图片、Prompt 和生成参数执行微调后推理，保存 `inference_comparison.json`。对照参考 Caption、Base 和 LoRA 输出，记录具体变化；小样本同图对比不能证明新场景泛化能力提升。
 
 [Notebook 02 - Step 10](notebooks/02_multimodal_model_training_inference.ipynb#step-10--同图同-prompt-微调后推理与结果对比)
+
+![Part 2 Step 10 - 1](images/part2-step-10-01.png)
 
 <!-- 待添加：同图 Base / LoRA 输出对比截图与实践评论。 -->
 
