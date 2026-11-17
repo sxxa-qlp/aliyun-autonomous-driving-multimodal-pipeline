@@ -1,0 +1,95 @@
+name: Import Notion images (one-time)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/notion-image-manifest.json'
+permissions:
+  contents: write
+jobs:
+  import-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all Notion images and prepare README
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          import urllib.request
+          from pathlib import Path
+
+          manifest = json.loads(Path('.github/notion-image-manifest.json').read_text())
+          pictures = manifest['files']
+          assert len(pictures) == manifest['expected'] == 22
+          destination = Path('images')
+          destination.mkdir(exist_ok=True)
+          for idx, item in enumerate(pictures, 1):
+              assert item['file'] == f'notion-{idx:02d}.png'
+              request = urllib.request.Request(item['url'], headers={'User-Agent': 'Mozilla/5.0'})
+              with urllib.request.urlopen(request, timeout=75) as response:
+                  data = response.read(15000001)
+              if not data.startswith(b'\x89PNG\r\n\x1a\n') or len(data) <= 100 or len(data) >= 15000001:
+                  raise ValueError(f'Not a valid Notion PNG: {item["file"]}, bytes={len(data)}')
+              (destination / item['file']).write_bytes(data)
+              print(f'Downloaded {idx}/22, {item["file"]}, bytes={len(data)}', flush=True)
+
+          readme = Path('README.md')
+          text = readme.read_text(encoding='utf-8')
+          count = 0
+          for idx in range(1, 23):
+              name = f'notion-{idx:02d}.png'
+              link = f'![Notion 原文配图 {idx:02d}](images/{name})'
+              if idx == 1:
+                  regex = r'<image source="notion-file-block://[^"]+"\s*/>'
+              else:
+                  regex = rf'> 📷 \*\*原文配图 {idx}\*\*：[^\n]*'
+              text, replacements = re.subn(regex, link, text, count=1)
+              if replacements != 1 and link not in text:
+                  raise AssertionError(f'Expected exactly one README placeholder for image {idx}, found {replacements}')
+              count += replacements
+          assert text.count('](images/notion-') == 22
+          text = text.replace(
+              'Notion 中的控制台截图不直接复制至公共 README，配图位置提供原文入口。',
+              'Notion 图片已保存至本仓库 images/ 目录，并在 README 中使用相对路径显示；公开仓库请勿包含未脱敏的密钥。')
+          text = text.replace(
+              '上述配图链接指向 Notion 页面，GitHub 中并未托管截图文件。',
+              'Notion 配图已保存至仓库的 images/ 目录。')
+          readme.write_text(text, encoding='utf-8')
+          PY
+      - name: Screen for obvious access keys in screenshots before publishing
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr > /dev/null
+          python - <<'PY'
+          import re
+          import subprocess
+          from pathlib import Path
+
+          sensitive_patterns = [
+            re.compile(r'\bLTAI[A-Za-z0-9]{12,}\b'),
+            re.compile(r'\bAKIA[A-Z0-9]{12,}\b'),
+            re.compile(r'\bsk-[A-Za-z0-9_-]{18,}\b'),
+            re.compile(r'\bghp_[A-Za-z0-9]{20,}\b'),
+            re.compile(r'\bBearer\s+[A-Za-z0-9._-]{20,}\b'),
+          ]
+          for img in sorted(Path('images').glob('notion-*.png')):
+              run = subprocess.run(['tesseract',str(img),'stdout'],capture_output=True,timeout=90)
+              if run.returncode != 0:
+                  raise RuntimeError(f'Failed to check image: {img}')
+              ocr = run.stdout.decode('utf-8','replace')
+              dense = re.sub(r'\s+', '', ocr)
+              if any(p.search(ocr) or p.search(dense) for p in sensitive_patterns):
+                  raise RuntimeError(f'Potential access key in {img}; manual redaction needed; no images have been committed.')
+          print('No obvious access key strings detected by OCR; review is still advised.')
+          PY
+      - name: Commit imported images and replace placeholders
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git add -f images/*.png
+          git rm .github/notion-image-manifest.json .github/workflows/import-notion-images.yml
+          git commit -m "docs: import 22 Notion screenshots and embed in README"
+          git push origin HEAD:main

@@ -32,3 +32,5 @@ results/
 *.jsonl
 baseline_prediction.json
 inference_comparison.json
+# Documentation screenshots tracked despite the general PNG ignore rule
+!images/*.png
