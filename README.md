@@ -72,7 +72,7 @@
 1. 在 [阿里云控制台](https://home.console.aliyun.com/) 登录。
 2. 打开 [PAI 控制台](https://pai.console.aliyun.com/)，选择 <b>华东 1（杭州）</b><b><code>cn-hangzhou</code></b>，创建或选择工作空间。
 3. 在工作空间中进入 <b>交互式建模（DSW）</b>，创建实例。
-4. 选择兼容 CUDA 的镜像 / Python 3.11 环境；配置系统云盘。把持久文件放在云盘挂载点（示例 <code>/mnt/systemDisk</code>），而不是仅依赖内存变量。
+4. 选择兼容 CUDA 的镜像 / Python 3.11 环境；配置系统云盘。
 
 目前的活动是aliyun PAI平台连续三个月，每月送250计算时，合计750cu。这个计算时是用来租dsw机器的计费单位，比如750cu大致可使用<b>ecs.gn7i-c8g1.2xlarge</b>，即<b>8c30g A10-24g</b>独显的dsw机器约107h，优先选这个配置的机器，因为独显高且消耗额度少。我选的时候这个机器缺货，所以就选了<b>ecs.gn6v-c8g1.2xlarge</b>的。
 
