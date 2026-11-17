@@ -56,12 +56,11 @@
 - [0. 准备工作](#0准备工作)
 - [1. 工作流与源码导航](#1-工作流与源码导航)
 - [2. 阿里云用户准备工作（控制台操作）](#2-阿里云用户准备工作控制台操作)
-- [3. DSW 环境与统一配置](#3-dsw-环境与统一配置)
-- [4. Part 1：多模态数据处理（Step 0–10）](#4-part-1multimodal-data-processing-of-autonomous-driving-images)
-- [5. Part 2：多模态模型训练与推理](#5-part-2multimodal-model-training--inference-pipeline)
-- [6. 实测结果与评价边界](#6-实测结果与评价边界)
-- [7. 常见错误与排查](#7-常见错误与排查)
-- [8. 安全、成本、测试与参考资料](#8-安全成本测试与参考资料)
+- [3. Part 1：多模态数据处理（Step 0–10）](#3-part-1multimodal-data-processing-of-autonomous-driving-images)
+- [4. Part 2：多模态模型训练与推理](#4-part-2multimodal-model-training--inference-pipeline)
+- [5. 实测结果与评价边界](#5-实测结果与评价边界)
+- [6. 常见错误与排查](#6-常见错误与排查)
+- [7. 安全、成本、测试与参考资料](#7-安全成本测试与参考资料)
 
 
 
@@ -185,88 +184,7 @@ aliyun-autonomous-driving-multimodal-pipeline/
 
 **原教程与本仓库的差异**：原阿里云案例包含 EMR Serverless Spark、DLC 多卡训练和 EAS 部署。为了降低成本，我们实际走通的是 **DSW + PyPaimon REST + OpenAI 兼容视觉 API + 百炼 Embedding + DSW 单卡 QLoRA**，未验证的 DLC / EAS 路线不计入本仓库已实现功能。
 
-## 3. DSW 环境与统一配置
-
-### 3.1 GPU / PyTorch 检查
-
-在 DSW **Terminal** 中执行：
-
-```bash
-nvidia-smi
-python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available()); print(torch.cuda.get_arch_list())"
-```
-
-本次已成功使用的主要组合：
-
-| 项目 | 已验证配置 |
-|---|---|
-| Python | 3.11.14 |
-| GPU | Tesla V100-SXM2-16GB (`sm_70`) |
-| NVIDIA Driver | 570.211.01；驱动报告 CUDA 12.8 |
-| PyTorch | `2.9.1+cu126`（CUDA runtime 12.6） |
-| transformers / peft / bitsandbytes | `4.52.4` / `0.15.2` / `0.48.0` |
-| 模型加载 | NF4 4-bit，FP16 计算，`attn_implementation="eager"` |
-
-V100 不支持原生 BF16，也不要为它直接安装新 CUDA 13 构建或 FlashAttention-2。本次曾因依赖升级意外安装 `torch 2.15.0+cu132` 导致 GPU 不可用；**不要盲目使用 `--force-reinstall pypaimon`**。参考 [PyTorch 安装版本矩阵](https://pytorch.org/get-started/previous-versions/)。
-
-如需安装对应 CUDA 12.6 PyTorch wheel（**仅当你当前环境未正确安装时**）：
-
-```bash
-python -m pip install --no-cache-dir \
-  torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 \
-  --index-url https://download.pytorch.org/whl/cu126
-```
-
-### 3.2 克隆 / 配置 `.env` / 安装依赖
-
-```bash
-git clone https://github.com/sxxa-qlp/aliyun-autonomous-driving-multimodal-pipeline.git
-cd aliyun-autonomous-driving-multimodal-pipeline
-cp -n .env.example .env
-# 用 DSW 文本编辑器打开 .env，填写最小权限凭证和接口地址
-
-# 先按上面 3.1 节确认 CUDA torch 完好，再安装其他依赖
-python -m pip install -r requirements-data.txt -c constraints-v100.txt
-python -m pip install -r requirements-train.txt -c constraints-v100.txt
-python -m pip check
-```
-
-`.env` 使用 [.env.example](.env.example) 所示名称，例如：
-
-```ini
-ALIBABA_CLOUD_ACCESS_KEY_ID=你的RAM_AK_ID
-ALIBABA_CLOUD_ACCESS_KEY_SECRET=你的RAM_AK_SECRET
-ALIBABA_CLOUD_SECURITY_TOKEN=
-VISION_API_BASE_URL=https://你的视觉API地址/v1
-VISION_API_KEY=你的视觉API密钥
-VISION_MODEL=你的视觉模型名称
-EMBEDDING_API_URL=https://你的百炼多模态Embedding接口地址
-EMBEDDING_API_KEY=你的百炼密钥
-```
-
-**长期 RAM AK 不需要 Security Token，可留空；STS 临时凭证需要同时提供三项，且会过期。** `EMBEDDING_API_URL` 是百炼原生多模态向量化接口地址，不是视觉模型的 OpenAI 兼容 Base URL。
-
-**依赖安装后，在 Notebook 菜单选择 `Kernel → Restart Kernel`，然后从 Step 1 加载 `.env`。** 重启只会清空 Python 变量，不会删除持久云盘中的数据 / 缓存 / Adapter。两个 Notebook 在本文件内部通过 `load_dotenv(ROOT / '.env')` 和 `os.getenv` 初始化参数，**无需 `from config import settings`**。
-
-### 3.3 首次运行开关、成本与安全
-
-**Notebook 01 面向首次运行，7 个 `RUN_...` 开关默认全部开启：**
-
-```python
-RUN_DOWNLOAD = True
-RUN_RAW_WRITE = True
-RUN_CAPTION_LABELING = True
-RUN_CREATE_ENRICHED = True
-RUN_SAMPLE_EMBEDDING = True
-RUN_VECTOR_BACKFILL = True
-RUN_TEXT_RETRIEVAL = True
-```
-
-Notebook 01 按 Step 0–10 顺序执行，完成后可根据需要关闭下载、API 请求或写入。**注意：首次运行可能产生网络/存储/推理费用；Step 9 会备份后 Overwrite 实验 Paimon 表，不能并发写入，勿用于生产表。** 每个 Code Cell 前都包含目的、前置条件、结果与成本说明。默认仅对 20 张图片做视觉标注，不会自动标注完整 mini。
-
-**Notebook 02 仍保留训练等高成本操作的独立默认开关**，本次不改动 Notebook 02。
-
-## 4. Part 1：Multimodal Data Processing of Autonomous Driving Images
+## 3. Part 1：Multimodal Data Processing of Autonomous Driving Images
 
 ### Step 0 · 获取源码、安装依赖、参数配置
 
@@ -1615,7 +1533,7 @@ else:
 - Notebook 02 可以直接读取 Paimon 增强表；如果已有 <code>vlm_training/train.jsonl</code>，则优先复用它，保持之前的验证样本与基线预测不变。
 - <b>本 Notebook 的全部函数在本文件中定义</b>，没有 <code>from multimodal_data_processing import ...</code>。
 
-## 5. Part 2：Multimodal Model Training & Inference Pipeline
+## 4. Part 2：Multimodal Model Training & Inference Pipeline
 
 [打开完整 Notebook 02](notebooks/02_multimodal_model_training_inference.ipynb)
 
@@ -1631,7 +1549,7 @@ else:
 
 **Prompt / 图片 / 解码配置必须保持一致**，才能公平比较 Base 与 LoRA；`prepare_model_for_kbit_training` 后不可重复对同一模型调用 `get_peft_model`。
 
-## 6. 实测结果与评价边界
+## 5. 实测结果与评价边界
 
 | 项目 | 本次 DSW 实验 |
 |---|---|
@@ -1653,7 +1571,7 @@ else:
 
 这证明实际的**工程数据链路 / QLoRA 风格适配**已在 DSW 走通，但相似连续帧的 19/1 验证**无法证明**跨夜间、雨天或不同道路的泛化提升。
 
-## 7. 常见错误与排查
+## 6. 常见错误与排查
 
 - **找不到变量、模型或 Processor**：Kernel 重启会清空内存；从 Notebook Step 1 顺序运行，或复用已经保存的 JSONL、模型缓存和 Adapter。
 - **`NOT configured`**：检查 `.env` 文件是否放在仓库根目录，以及变量名是否与 [.env.example](.env.example) 一致。Notebook 仅确认配置非空；DLF 真正的网络/权限验证在 Notebook 01 Step 4。
@@ -1661,7 +1579,7 @@ else:
 - **模型加载出现 CUDA 不兼容**：检查 `torch.version.cuda`、`torch.cuda.get_arch_list()` 是否包含 `sm_70`；勿在 V100 上选择 BF16 或 FlashAttention-2。
 - **LoRA 重复挂载**：不要在已挂 Adapter 的模型上重复调用 `get_peft_model()`；重启 Kernel 后重新加载基础模型和 Adapter。
 
-## 8. 安全、成本、测试与参考资料
+## 7. 安全、成本、测试与参考资料
 
 - **原始文件 / 密钥**：`.env`、API Key、图像、训练数据、模型、Adapter、向量缓存均不上传仓库。若密钥曾出现在公开 Git 历史，需要在云平台轮换。
 - **复现验证说明**：Notebook 已通过本地格式、语法、纯函数逻辑与独立依赖检查；新重构的 Notebook 版本尚未在真实 DSW 上重跑全程。涉及 DLF、付费 API 和 V100 GPU 的路径仍需在你的 DSW 环境中确认。
