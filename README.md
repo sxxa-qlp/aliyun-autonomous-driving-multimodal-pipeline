@@ -2,7 +2,7 @@
 
 > 文章来源：[Notion 实践笔记](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507)，整理为 GitHub 可阅读的 Markdown。原文保留了部分 DSW 实验过程及代码；仓库中的 [Notebook 01](notebooks/01_multimodal_data_processing.ipynb) 与 [Notebook 02](notebooks/02_multimodal_model_training_inference.ipynb) 是可运行版本。
 >
-> **公开安全提示**：RAM AccessKey、API Key 等凭证仅保存在本地 `.env`，请勿提交到 GitHub。Notion 中的控制台截图不直接复制至公共 README，配图位置提供原文入口。
+> **公开安全提示**：RAM AccessKey、API Key 等凭证仅保存在本地 `.env`，请勿提交到 GitHub。Notion 图片已保存至本仓库 images/ 目录，并在 README 中使用相对路径显示；公开仓库请勿包含未脱敏的密钥。
 
 
 
@@ -25,7 +25,7 @@
 </li>
 </ul>
 
-<image source="notion-file-block://417790d8-8f7f-80f1-a189-d4977f730b9b/7db85e99-2059-4434-a041-f7e0d6fca9b7?space_id=c07790d8-8f7f-81f4-84d7-00030b99033a&name=image.png" />
+![Notion 原文配图 01](images/notion-01.png)
 
 注意：
 
@@ -77,13 +77,13 @@
 目前的活动是aliyun PAI平台连续三个月，每月送250计算时，合计750cu。这个计算时是用来租dsw机器的计费单位，比如750cu大致可使用<b>ecs.gn7i-c8g1.2xlarge</b>，即<b>8c30g A10-24g</b>独显的dsw机器约107h，优先选这个配置的机器，因为独显高且消耗额度少。我选的时候这个机器缺货，所以就选了<b>ecs.gn6v-c8g1.2xlarge</b>的。
 
 
-> 📷 **原文配图 2**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 02](images/notion-02.png)
 
 
 选择不同gpu型号，可选的镜像已经是筛选之后的，也就是gpu的驱动和cuda肯定是兼容的。我们只用选择项目要求的pytorch、cuda、py版本对应的镜像就好了，很省心。比如：pytorch:2.9.1-gpu-py311-cu126-ubuntu24.04-accl。【TODO：留个坑，后面写一个pytorch cuda gpu driver的兼容链文档】
 
 
-> 📷 **原文配图 3**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 03](images/notion-03.png)
 
 
 <b>试用领取、额度查询</b>
@@ -100,15 +100,15 @@
 
 1. 在 [RAM 控制台](https://ram.console.aliyun.com/) 给 <b>RAM 角色授权DLF（data lake formation），id和key只在创建的时候显示一次，需要留存，在dsw里访问dlf的时候会用到</b>。
    
-> 📷 **原文配图 4**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 04](images/notion-04.png)
 
 
    
-> 📷 **原文配图 5**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 05](images/notion-05.png)
 
 2. 回到DLF首页同步ram授权，注意地域要确认和dsw区域一致。我的dsw在杭州1，这里用上海1演示。
    
-> 📷 **原文配图 6**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 06](images/notion-06.png)
 
 
    <p>
@@ -116,7 +116,7 @@
    </p>
 
    
-> 📷 **原文配图 7**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 07](images/notion-07.png)
 
 
    <p>
@@ -124,7 +124,7 @@
    </p>
 
    
-> 📷 **原文配图 8**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 08](images/notion-08.png)
 
 
    <p>
@@ -132,7 +132,7 @@
    </p>
 
    
-> 📷 **原文配图 9**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 09](images/notion-09.png)
 
 
 ### 3.准备模型密钥
@@ -140,7 +140,7 @@
 1. <b>视觉标注</b>：使用支持 OpenAI Responses 图像输入的视觉模型 API<br />，比如gpt-6.1-sol
 2. <b>多模态 Embedding</b>：通义 <code>tongyi-embedding-vision-plus</code>，使用百炼 <b>DashScope 原生多模态 Embedding 接口</b>，配置 <code>EMBEDDING_API_URL</code> 和 <code>EMBEDDING_API_KEY</code>；本次结果为 1152 维。注意，这里必须使用百炼提供的 <b>DashScope 接口，</b>[官方](https://docs.bailian.console.aliyun.com/zh/model-studio/embedding#:~:text=%E5%A4%9A%E6%A8%A1%E6%80%81%E7%8B%AC%E7%AB%8B%E5%90%91%E9%87%8F%E5%8C%96%E5%8A%9F%E8%83%BD%E9%9C%80%E8%A6%81%E9%80%9A%E8%BF%87%20DashScope%20SDK%20%E6%88%96%20API%20%E6%9D%A5%E8%B0%83%E7%94%A8%EF%BC%8C%E4%B8%8D%E6%94%AF%E6%8C%81%20OpenAI%20%E5%85%BC%E5%AE%B9%E6%8E%A5%E5%8F%A3%E8%B0%83%E7%94%A8%E6%88%96%E5%9C%A8%E6%8E%A7%E5%88%B6%E5%8F%B0%E7%9B%B4%E6%8E%A5%E4%BD%BF%E7%94%A8%E3%80%82)文档说了这里不支持openai兼容url<b>。</b>
    
-> 📷 **原文配图 10**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 10](images/notion-10.png)
 
 3. <b>训练基础模型</b>：<code>Qwen/Qwen2-VL-2B-Instruct</code> 从 [ModelScope 魔搭](https://modelscope.cn/models/Qwen/Qwen2-VL-2B-Instruct) 下载到 DSW 云盘，<b>跳转对应的代码</b>
 
@@ -288,7 +288,7 @@ python -m pip check
 <i><b>这些变量在.env里面填写</b></i>
 
 
-> 📷 **原文配图 11**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 11](images/notion-11.png)
 
 
 <table fit-page-width="true" header-row="true">
@@ -518,7 +518,7 @@ print('.env 文件存在:', (ROOT/'.env').is_file())
 ```
 
 
-> 📷 **原文配图 12**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 12](images/notion-12.png)
 
 
 ### Step 2 · 参数与环境检查
@@ -653,7 +653,7 @@ print('Working dir:', settings.work_dir)
 ```
 
 
-> 📷 **原文配图 13**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 13](images/notion-13.png)
 
 
 ### Step 3 · 获取 nuScenes mini，按配置选择 CAM\_FRONT 帧
@@ -732,7 +732,7 @@ else:
 ```
 
 
-> 📷 **原文配图 14**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 14](images/notion-14.png)
 
 
 #### Step 3.2 · 选择全量 mini 或 20 张连续 CAM\_FRONT 图片
@@ -817,7 +817,7 @@ else:
 ```
 
 
-> 📷 **原文配图 15**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 15](images/notion-15.png)
 
 
 ### Step 4 · DSW 连接 DLF 2.0 REST Catalog / Paimon
@@ -909,7 +909,7 @@ print('Default tables:', catalog.list_tables('default'))
 ```
 
 
-> 📷 **原文配图 16**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 16](images/notion-16.png)
 
 
 数据湖连接正常，一个生图表，一个增强表
@@ -1153,7 +1153,7 @@ else:
 ````
 
 
-> 📷 **原文配图 17**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 17](images/notion-17.png)
 
 
 ### Step 7 · 创建多模态增强表并写入
@@ -1231,7 +1231,7 @@ else:
 ```
 
 
-> 📷 **原文配图 18**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 18](images/notion-18.png)
 
 
 ### Step 8 · 生成 1152 维图像/文本 Embedding
@@ -1303,7 +1303,7 @@ else:
 ```
 
 
-> 📷 **原文配图 19**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 19](images/notion-19.png)
 
 
 每张图1152维的embedding向量
@@ -1367,7 +1367,7 @@ else:
 ```
 
 
-> 📷 **原文配图 20**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 20](images/notion-20.png)
 
 
 吧embedding回填到paimon表里面，至此，enrichment table就完成了
@@ -1476,7 +1476,7 @@ else:
 ```
 
 
-> 📷 **原文配图 21**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 21](images/notion-21.png)
 
 
 <p />
@@ -1606,7 +1606,7 @@ else:
 ```
 
 
-> 📷 **原文配图 22**：截图保留在 [Notion 原文](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507) 中（不在公开仓库复制可能包含账号或控制台信息的截图）。
+![Notion 原文配图 22](images/notion-22.png)
 
 
 文搜图的相似性挺低的
@@ -1674,4 +1674,4 @@ else:
 
 **成本与数据安全补充**：`USE_FULL_MINI=true` 会扩大 Caption 和 Embedding API 调用量；执行前需确认额度、速率、云盘空间。Notebook 01 Step 9 采用备份后 Overwrite 的实验表向量回填策略，不要对生产表直接执行。
 
-**内容范围**：Notion 当前正文详细记录到 Part 1 Step 10；Part 2、实测结果与常见问题沿用本仓库原 README 的已有说明。上述配图链接指向 Notion 页面，GitHub 中并未托管截图文件。
+**内容范围**：Notion 当前正文详细记录到 Part 1 Step 10；Part 2、实测结果与常见问题沿用本仓库原 README 的已有说明。Notion 配图已保存至仓库的 images/ 目录。
