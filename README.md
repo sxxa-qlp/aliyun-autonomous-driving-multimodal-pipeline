@@ -188,16 +188,7 @@ aliyun-autonomous-driving-multimodal-pipeline/
 
 ### Step 0 · 获取源码、安装依赖、参数配置
 
-```bash
-git clone https://github.com/sxxa-qlp/aliyun-autonomous-driving-multimodal-pipeline.git
-cd aliyun-autonomous-driving-multimodal-pipeline
-cp -n .env.example .env
-
-# 按 README 核对 torch==2.9.1+cu126、A10 GPU sm_86；切勿盲目重装 CUDA/PyTorch
-python -m pip install -r requirements-data.txt -c constraints-cu126.txt
-python -m pip install -r requirements-train.txt -c constraints-cu126.txt
-python -m pip check
-```
+[Notebook 01 - Step 0](notebooks/01_multimodal_data_processing.ipynb#step-0--dsw-安装依赖--重启-kernel先在-terminal-完成)
 
 参数配置
 
@@ -408,30 +399,7 @@ python -m pip check
 
 <b>可调参数</b>：<code>candidates</code> 是仓库根目录的搜索位置列表，自定义目录结构时可补充路径。<code>load_dotenv(..., override=False)</code> 保留已有进程环境变量；改为 <code>True</code> 则允许 <code>.env</code> 覆盖同名变量。修改 <code>.env</code> 后建议重启 Kernel，从本步骤重新加载。
 
-```py
-# Step 1：Notebook 自包含；查找仓库根目录，仅用 .env.example 确认目录
-import os
-import sys
-import shutil
-import json
-import importlib.metadata
-import platform
-from pathlib import Path
-from dataclasses import dataclass
-from dotenv import load_dotenv
-
-cwd = Path.cwd().resolve()
-candidates = [cwd, *cwd.parents,
-              cwd/'aliyun-autonomous-driving-multimodal-pipeline',
-              Path.home()/'workspace'/'aliyun-autonomous-driving-multimodal-pipeline']
-ROOT = next((p for p in candidates if (p/'README.md').is_file()
-             and (p/'.env.example').is_file() and (p/'notebooks').is_dir()), None)
-if ROOT is None:
-    raise FileNotFoundError('请在已 git clone 的仓库根目录或 notebooks/ 目录运行本 Notebook。')
-load_dotenv(ROOT/'.env', override=False)
-print('仓库:', ROOT)
-print('.env 文件存在:', (ROOT/'.env').is_file())
-```
+[Notebook 01 - Step 1](notebooks/01_multimodal_data_processing.ipynb#step-1--加载-env重启-kernel-后执行)
 
 
 ![Notion 原文配图 12](images/notion-12.png)
@@ -443,130 +411,7 @@ print('.env 文件存在:', (ROOT/'.env').is_file())
 
 环境检查中的 <code>configured</code> 只表示参数非空，不代表认证成功；Step 4 才验证真实连接。
 
-```py
-# Step 2：所有参数通过环境变量 / .env 加载；不在 Notebook 内硬编码密钥
-def read_boolean_environment(name: str, default: str = "false") -> bool:
-    value = os.getenv(name, default).strip().lower()
-    if value not in {"true", "false"}:
-        raise ValueError(f"{name} must be true or false, got {value!r}")
-    return value == "true"
-
-@dataclass(frozen=True)
-class Settings:
-    region: str = os.getenv("ALIYUN_REGION", "cn-hangzhou")
-    dlf_rest_uri: str = os.getenv("DLF_REST_URI", "https://dlfnext.cn-hangzhou.aliyuncs.com")
-    dlf_warehouse: str = os.getenv("DLF_WAREHOUSE", "vehicle_lake_demo")
-    oss_endpoint: str = os.getenv("DLF_OSS_ENDPOINT", "oss-cn-hangzhou.aliyuncs.com")
-    access_key_id: str = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID", "")
-    access_key_secret: str = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET", "")
-    security_token: str = os.getenv("ALIBABA_CLOUD_SECURITY_TOKEN", "")
-    raw_table: str = os.getenv("PAIMON_RAW_TABLE", "default.camfront_raw_images")
-    enriched_table: str = os.getenv("PAIMON_ENRICHED_TABLE", "default.camfront_ai_enriched")
-    vision_base_url: str = os.getenv("VISION_API_BASE_URL", "")
-    vision_key: str = os.getenv("VISION_API_KEY", "")
-    vision_model: str = os.getenv("VISION_MODEL", "your-vision-model")
-    embedding_url: str = os.getenv("EMBEDDING_API_URL", "")
-    embedding_key: str = os.getenv("EMBEDDING_API_KEY", "")
-    embedding_model: str = os.getenv("EMBEDDING_MODEL", "tongyi-embedding-vision-plus")
-    vector_dim: int = int(os.getenv("EMBEDDING_VECTOR_DIM", "1152"))
-    work_dir: Path = Path(os.getenv("WORK_DIR", "/mnt/systemDisk/ad_multimodal"))
-    model_id: str = os.getenv("MODEL_ID", "Qwen/Qwen2-VL-2B-Instruct")
-    model_cache_dir: Path = Path(os.getenv("MODEL_CACHE_DIR", "/mnt/systemDisk/model_cache"))
-    seed: int = int(os.getenv("SPLIT_RANDOM_SEED", "20260520"))
-    val_ratio: float = float(os.getenv("VALIDATION_RATIO", "0.05"))
-    image_max_tokens: int = int(os.getenv("IMAGE_MAX_TOKENS", "256"))
-    use_full_mini: bool = read_boolean_environment("USE_FULL_MINI")
-
-    def __post_init__(self) -> None:
-        # Isolate full-run tables from smoke-test tables and vector overwrites.
-        if self.use_full_mini:
-            for field_name in ("raw_table", "enriched_table"):
-                table_name = getattr(self, field_name)
-                if not table_name.endswith("_full_mini"):
-                    object.__setattr__(self, field_name, table_name + "_full_mini")
-
-    @property
-    def dataset_dir(self) -> Path:
-        return self.work_dir / "vlm_training"
-
-    @property
-    def lora_output_dir(self) -> Path:
-        return self.work_dir / "qwen2vl_lora"
-
-    @property
-    def nu_scenes_dir(self) -> Path:
-        return self.work_dir / "nuscenes"
-
-    @property
-    def caption_csv(self) -> Path:
-        filename = "caption_metadata_results_full_mini.csv" if self.use_full_mini else "caption_metadata_results.csv"
-        return self.work_dir / filename
-
-    @property
-    def embedding_cache(self) -> Path:
-        return self.work_dir / "embedding_cache" / self.embedding_model
-
-    def require_dlf_credentials(self) -> None:
-        if not self.access_key_id or not self.access_key_secret:
-            raise RuntimeError("Set ALIBABA_CLOUD_ACCESS_KEY_ID / ALIBABA_CLOUD_ACCESS_KEY_SECRET (or adapt a supported role credential provider).")
-
-    def catalog_options(self) -> dict[str, str]:
-        """DLF 2.0 REST catalog options used in the verified PyPaimon 1.4 flow."""
-        self.require_dlf_credentials()
-        options = {
-            "metastore": "rest", "uri": self.dlf_rest_uri,
-            "warehouse": self.dlf_warehouse,
-            "dlf.region": self.region,
-            "token.provider": "dlf",
-            "dlf.access-key-id": self.access_key_id,
-            "dlf.access-key-secret": self.access_key_secret,
-            "dlf.oss-endpoint": self.oss_endpoint,
-        }
-        if self.security_token:
-            # Validate against the deployed PyPaimon version before using STS.
-            options["dlf.security-token"] = self.security_token
-        return options
-
-settings = Settings()
-def check_environment() -> bool:
-    """Print diagnostics without revealing secrets or changing packages."""
-    import importlib.metadata
-    import platform
-    print("Python:", platform.python_version())
-    for name in ("numpy", "pandas", "pypaimon", "pyarrow", "torch", "transformers", "peft", "bitsandbytes", "modelscope"):
-        try:
-            print(f"{name:15} {importlib.metadata.version(name)}")
-        except importlib.metadata.PackageNotFoundError:
-            print(f"{name:15} [not installed]")
-    print("Work dir:", settings.work_dir)
-    print("Work-dir parent exists:", settings.work_dir.parent.exists())
-    if settings.work_dir.parent.exists():
-        print("Free GiB:", round(shutil.disk_usage(settings.work_dir.parent).free / 2**30, 1))
-    for label, value in (("DLF credentials", bool(settings.access_key_id and settings.access_key_secret)),
-                         ("Vision API", bool(settings.vision_base_url and settings.vision_key)),
-                         ("Embedding API", bool(settings.embedding_url and settings.embedding_key))):
-        print(f"{label}: {'configured' if value else 'NOT configured'}")
-    try:
-        import torch
-        print("PyTorch CUDA:", torch.version.cuda, "available:", torch.cuda.is_available())
-        if torch.cuda.is_available():
-            name = torch.cuda.get_device_name(0)
-            sm = torch.cuda.get_device_capability(0)
-            print("GPU:", name, "compute capability:", sm)
-            x = torch.randn(64, 64, device="cuda")
-            torch.cuda.synchronize()
-            print("GPU tensor test:", float((x @ x).mean()))
-            return True
-    except (ImportError, RuntimeError) as exc:
-        print("GPU check failed:", str(exc)[:300])
-    return False
-
-check_environment()
-print('数据模式:', '全量 mini CAM_FRONT (samples + sweeps)' if settings.use_full_mini else '20 张 CAM_FRONT 流程试跑')
-print('Caption CSV:', settings.caption_csv)
-print('Paimon Raw / Enriched:', settings.raw_table, settings.enriched_table)
-print('Working dir:', settings.work_dir)
-```
+[Notebook 01 - Step 2](notebooks/01_multimodal_data_processing.ipynb#step-2--参数与环境检查)
 
 
 ![Notion 原文配图 13](images/notion-13.png)
@@ -580,72 +425,7 @@ print('Working dir:', settings.work_dir)
 
 <b>可调参数</b>：<code>RUN_DOWNLOAD=True</code> 下载并解压，<code>False</code> 跳过整个下载/解压步骤；<code>URL</code> 是 mini 压缩包地址；<code>.env</code> 中的 <code>WORK_DIR</code> 决定压缩包和解压目录。压缩包已存在时跳过下载，但仍会解压。两种数据模式都下载完整 mini
 
-```py
-# 下载与安全解压：JupyterLab 中显示下载量/速度和解压文件数
-import tarfile
-import requests
-from pathlib import Path
-from tqdm.auto import tqdm
-
-URL = "https://www.nuscenes.org/data/v1.0-mini.tgz"
-
-
-def download_archive(url: str, target: Path) -> Path:
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists():
-        print("压缩包已存在，跳过下载:", target)
-        return target
-
-    partial = target.with_name(target.name + ".part")
-    print("开始下载:", url)
-    # 当前采用覆盖下载；如 .part 已存在，会重新下载而不是断点续传。
-    with requests.get(url, stream=True, timeout=(15, 120)) as response:
-        response.raise_for_status()
-        total = int(response.headers.get("content-length", 0))
-        with partial.open("wb") as output, tqdm(
-            total=total or None,
-            desc="下载 nuScenes mini",
-            unit="B",
-            unit_scale=True,
-            unit_divisor=1024,
-        ) as progress:
-            for chunk in response.iter_content(chunk_size=1024 * 1024):
-                if chunk:
-                    output.write(chunk)
-                    progress.update(len(chunk))
-    partial.replace(target)
-    print("下载完成:", target)
-    return target
-
-
-def extract_safe(archive: Path, out_dir: Path) -> None:
-    """先检查全部归档路径/类型，再逐个安全解压并显示文件数量进度。"""
-    root = out_dir.resolve()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    print("开始解压:", archive)
-    with tarfile.open(archive, "r:gz") as tf:
-        members = tf.getmembers()
-        for member in members:
-            target = (out_dir / member.name).resolve()
-            if not target.is_relative_to(root):
-                raise ValueError(f"Archive path traversal: {member.name}")
-            if not (member.isfile() or member.isdir()):
-                raise ValueError(f"Unsupported tar member: {member.name}")
-
-        for member in tqdm(members, desc="解压 nuScenes mini", unit="file"):
-            tf.extract(member, path=out_dir, filter="data")
-
-    print("解压完成:", out_dir)
-
-
-RUN_DOWNLOAD = True  # False 跳过下载和解压；执行前确认磁盘空间
-if RUN_DOWNLOAD:
-    archive = download_archive(URL, settings.work_dir / "v1.0-mini.tgz")
-    extract_safe(archive, settings.nu_scenes_dir)
-    print("已解压:", settings.nu_scenes_dir)
-else:
-    print("下载已跳过；如已在 Paimon 保存原始图像，可直接从 Step 4 开始。")
-```
+[Notebook 01 - Step 3.1](notebooks/01_multimodal_data_processing.ipynb#step-31--下载完整-mini-数据集下一个-code-cell)
 
 
 ![Notion 原文配图 14](images/notion-14.png)
@@ -657,80 +437,7 @@ else:
 
 全量模式后续生成视觉capture和Embedding 的费用更高而且需要等的时间比较长，我额度有限先走小批量跑通流程，后面等额度刷新了在跑全量的。
 
-```py
-# CAM_FRONT 搜索 + 按日志前缀与时间戳选取连续帧
-import re
-import io
-from PIL import Image
-from IPython.display import display
-_TS = re.compile(r"__CAM_FRONT__(\d+)\.(?:jpg|jpeg)$", re.IGNORECASE)
-def list_camfront_images(dataset_dir: Path, source: str = "sweeps") -> list[Path]:
-    """Try preferred nuScenes sweeps/CAM_FRONT, fall back to samples/CAM_FRONT."""
-    preferred = dataset_dir / source / "CAM_FRONT"
-    paths = sorted(path for path in preferred.iterdir() if path.suffix.lower() in {".jpg", ".jpeg"}) if preferred.is_dir() else []
-    if not paths:
-        matches = sorted(path for path in dataset_dir.rglob("*")
-                         if path.is_file() and path.parent.name == "CAM_FRONT"
-                         and path.parent.parent.name == source
-                         and path.suffix.lower() in {".jpg", ".jpeg"})
-        paths = matches
-    if not paths:
-        print(f"No {source}/CAM_FRONT images; check archive layout or try --source samples")
-    return paths
-
-
-def select_adjacent(paths: list[Path], limit: int = 20) -> list[Path]:
-    """Stay within one filename log prefix and order by camera timestamp."""
-    groups: dict[str, list[tuple[int, Path]]] = {}
-    for path in paths:
-        match = _TS.search(path.name)
-        if match:
-            prefix = path.name.split("__CAM_FRONT__", 1)[0]
-            groups.setdefault(prefix, []).append((int(match.group(1)), path))
-    candidates = sorted(groups.values(), key=lambda v: (-len(v), min(x[0] for x in v)))
-    for group in candidates:
-        if len(group) >= limit:
-            return [p for _, p in sorted(group)[:limit]]
-    raise ValueError(f"Need {limit} images from one CAM_FRONT log; found group lengths {[len(g) for g in candidates[:5]]}")
-
-
-def read_images(paths: list[Path]) -> list[dict[str, object]]:
-    rows = []
-    for path in paths:
-        blob = path.read_bytes()
-        with Image.open(io.BytesIO(blob)) as image:
-            image.verify()
-        rows.append({"fileName": path.name, "picture": blob})
-    return rows
-
-selected = []
-if settings.use_full_mini:
-    images_by_name = {}
-    for source in ('samples', 'sweeps'):
-        candidates = list_camfront_images(settings.nu_scenes_dir, source=source)
-        if not candidates:
-            raise FileNotFoundError(f'全量模式缺少 {source}/CAM_FRONT 图片，请确认完整 mini 已解压。')
-        print('相机数据源:', source, '发现:', len(candidates))
-        for image_path in candidates:
-            images_by_name.setdefault(image_path.name, image_path)
-    selected = [images_by_name[name] for name in sorted(images_by_name)]
-    print('全量 CAM_FRONT 去重后选中:', len(selected))
-else:
-    for source in ('sweeps', 'samples'):
-        candidates = list_camfront_images(settings.nu_scenes_dir, source=source)
-        try:
-            selected = select_adjacent(candidates, limit=20)
-            print('相机数据源:', source, '选中:', len(selected))
-            break
-        except ValueError as exc:
-            print(source, ':', str(exc)[:150])
-if selected:
-    print('第一张图片:', selected[0].name)
-    with Image.open(selected[0]) as im:
-        display(im.convert('RGB').resize((640, 360)))
-else:
-    print('本地尚未找到 20 张同日志前视图片；可以复用既有 Paimon 表。')
-```
+[Notebook 01 - Step 3.2](notebooks/01_multimodal_data_processing.ipynb#step-32--选择全量-mini-或-20-张连续-cam_front-图片)
 
 
 ![Notion 原文配图 15](images/notion-15.png)
@@ -738,91 +445,7 @@ else:
 
 ### Step 4 · DSW 连接 DLF 2.0 REST Catalog / Paimon
 
-```py
-# Paimon REST 连接及 Arrow 表结构；整个实现保留在 Notebook
-import pyarrow as pa
-import pandas as pd
-RAW_SCHEMA = pa.schema([
-    ("fileName", pa.string()),
-    ("picture", pa.binary()),
-])
-
-
-ENRICHED_SCHEMA = pa.schema([
-    ("id", pa.string()), ("fileName", pa.string()),
-    ("picture", pa.binary()), ("caption", pa.string()),
-    ("metadata", pa.string()), ("vector", pa.list_(pa.float32())),
-    ("is_cloudy_candidate", pa.int32()), ("is_daytime", pa.int32()),
-    ("is_nighttime", pa.int32()), ("weather", pa.string()),
-    ("lighting", pa.string()), ("road_type", pa.string()),
-    ("scene_type", pa.string()), ("dataset_tag", pa.int32())
-])
-
-
-def connect_catalog():
-    from pypaimon import CatalogFactory
-    return CatalogFactory.create(settings.catalog_options())
-
-
-def ensure_table(catalog, name: str, arrow_schema: pa.Schema):
-    from pypaimon import Schema
-    database, short_name = name.split(".", 1)
-    if short_name not in catalog.list_tables(database):
-        schema = Schema.from_pyarrow_schema(
-            arrow_schema, options={"bucket": "-1", "file.format": "parquet"}
-        )
-        catalog.create_table(name, schema, ignore_if_exists=False)
-        print("Created:", name)
-    return catalog.get_table(name)
-
-
-def read_table(table):
-    import pandas as pd
-    rb = table.new_read_builder()
-    splits = rb.new_scan().plan().splits()
-    return rb.new_read().to_pandas(splits) if splits else pd.DataFrame()
-
-
-def write_arrow(table, data: pa.Table, *, overwrite: bool = False) -> None:
-    """Commit one Arrow batch. Overwrite is intentionally explicit."""
-    builder = table.new_batch_write_builder()
-    if overwrite:
-        builder = builder.overwrite()
-    writer, commit = builder.new_write(), builder.new_commit()
-    try:
-        writer.write_arrow(data)
-        commit.commit(writer.prepare_commit())
-    finally:
-        writer.close()
-        commit.close()
-
-
-def insert_if_empty(table, data: pa.Table) -> bool:
-    existing = read_table(table)
-    if not existing.empty:
-        expected_names = data.column("fileName").to_pylist()
-        if existing["fileName"].duplicated().any() or set(existing["fileName"]) != set(expected_names):
-            raise ValueError("Existing table filenames differ from this run; use a new table name or inspect the data manually.")
-        print(f"Table not empty ({len(existing)} rows); skip append to avoid duplicates")
-        return False
-    write_arrow(table, data, overwrite=False)
-    return True
-
-
-def upload_raw_images(rows: list[dict[str, object]]) -> bool:
-    catalog = connect_catalog()
-    table = ensure_table(catalog, settings.raw_table, RAW_SCHEMA)
-    written = insert_if_empty(table, pa.Table.from_pylist(rows, schema=RAW_SCHEMA))
-    check = read_table(table)
-    print(settings.raw_table, "row count:", len(check))
-    if written and len(check) != len(rows):
-        raise AssertionError("Raw table row count mismatch")
-    return written
-
-catalog = connect_catalog()
-print('Databases:', catalog.list_databases())
-print('Default tables:', catalog.list_tables('default'))
-```
+[Notebook 01 - Step 4](notebooks/01_multimodal_data_processing.ipynb#step-4--dsw-连接-dlf-20-rest-catalog--paimon)
 
 
 ![Notion 原文配图 16](images/notion-16.png)
@@ -836,237 +459,13 @@ print('Default tables:', catalog.list_tables('default'))
 
 <b>可调参数</b>：<code>RUN_RAW_WRITE=True</code> 写入 Step 3 选中的图片，<code>False</code> 跳过写入并读取已有表；<code>.env</code> 中 <code>PAIMON_RAW_TABLE</code> 指定表名，数据范围由 <code>USE_FULL_MINI</code> 决定。已有表文件名不匹配时会报错，不会自动覆盖
 
-```py
-RUN_RAW_WRITE = True
-if RUN_RAW_WRITE:
-    assert selected, '请先完成 Step 3 的 CAM_FRONT 图片选择'
-    written = upload_raw_images(read_images(selected))
-    print('是否新增:', written)
-else:
-    print('跳过原始表写入，直接读取已有 Paimon 表。')
-raw_df = read_table(catalog.get_table(settings.raw_table))
-if not raw_df.empty:
-    if raw_df['fileName'].duplicated().any():
-        raise ValueError('原始表包含重复文件名，请检查表数据。')
-    if selected and set(raw_df['fileName']) != {image_path.name for image_path in selected}:
-        raise ValueError('原始表与当前选图范围不同，请使用新的表名或检查数据。')
-    if not settings.use_full_mini and len(raw_df) != 20:
-        raise ValueError('试跑模式需要恰好 20 张图片，请检查原始表或重新运行 Step 3。')
-print('原始图片行数:', len(raw_df))
-if not raw_df.empty:
-    display(raw_df[['fileName']].head())
-    with Image.open(io.BytesIO(bytes(raw_df.iloc[0]['picture']))) as img:
-        display(img.convert('RGB').resize((640,360)))
-```
+[Notebook 01 - Step 5](notebooks/01_multimodal_data_processing.ipynb#step-5--写入原始-paimon-表并回读图片)
 
 ### Step 6 · 调用视觉 LLM 生成 Caption 和 Metadata
 
 一次 <code>responses.create</code> 调用生成 Caption / metadata，Caption  CSV 按文件名断点续跑。
 
-````py
-# 视觉标注完整实现：图片预处理 → Responses → 解析 JSON/SSE → CSV 断点续传
-import base64
-import csv
-import json
-import re
-import time
-SCENE_PROMPT = """You analyze a front-facing autonomous driving camera image.
-Return ONLY a JSON object containing:
-caption (concise 1-2 English sentences), weather (sunny/cloudy/rainy/foggy/snowy/unknown),
-lighting (daytime/nighttime/dawn/dusk/tunnel/unknown), road_type
-(urban/highway/residential/parking_lot/rural/unknown), scene_type
-(intersection/straight_road/curve/crosswalk_area/traffic_jam/unknown),
-objects (list of strings), risks (list of strings),
-is_cloudy_candidate (0/1), is_daytime (0/1), is_nighttime (0/1).
-Only describe visible evidence; do not invent uncertain details. Output valid JSON only."""
-
-
-FIELDS = ["fileName", "caption", "weather", "lighting", "road_type", "scene_type",
-          "objects", "risks", "is_cloudy_candidate", "is_daytime", "is_nighttime"]
-
-
-def image_to_data_url(image_bytes: bytes) -> str:
-    with Image.open(io.BytesIO(bytes(image_bytes))) as image:
-        img = image.convert("RGB")
-        img.thumbnail((1280, 720))
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
-    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-
-
-def parse_json_response(text: str) -> dict:
-    text = text.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text).strip()
-    try:
-        result = json.loads(text)
-    except json.JSONDecodeError:
-        start, end = text.find("{"), text.rfind("}")
-        if start == -1 or end < start:
-            raise ValueError("Vision model did not return JSON")
-        result = json.loads(text[start:end+1])
-    if not isinstance(result, dict):
-        raise ValueError("Vision JSON must be an object")
-    if not str(result.get("caption", "")).strip():
-        raise ValueError("Empty caption")
-    return result
-
-
-def extract_response_text(response) -> str:
-    """Read an OpenAI Responses object, or a custom gateway's SSE text payload.
-
-    Some Responses-compatible proxies return `event:/data:` lines even when
-    stream=False. The tutorial encountered this variation, so keep both paths.
-    """
-    if not isinstance(response, str):
-        direct = getattr(response, "output_text", None)
-        if direct:
-            return str(direct).strip()
-        pieces = [part.text for item in getattr(response, "output", [])
-                  for part in getattr(item, "content", [])
-                  if getattr(part, "type", "") == "output_text"]
-        if pieces:
-            return "\n".join(pieces).strip()
-        raise ValueError("Responses object has no output_text")
-    content = response.strip()
-    if not content.startswith(("event:", "data:")):
-        return content
-    for line in content.splitlines():
-        if not line.startswith("data:"):
-            continue
-        raw = line[5:].strip()
-        if raw == "[DONE]":
-            continue
-        try:
-            event = json.loads(raw)
-        except json.JSONDecodeError:
-            continue
-        if event.get("type") == "response.failed":
-            raise RuntimeError("Vision gateway reported response.failed")
-        if event.get("type") == "response.completed":
-            result = event.get("response", {})
-            pieces = [c.get("text", "") for item in result.get("output", [])
-                      for c in item.get("content", []) if c.get("type") == "output_text"]
-            if pieces:
-                return "\n".join(pieces).strip()
-    raise ValueError("No completed response found in SSE payload")
-
-
-def analyze_scene(image_bytes: bytes, *, timings: dict[str, float] | None = None) -> dict:
-    """Generate one scene annotation and log image/API/JSON phase timings.
-
-    API timing includes client creation, network transfer, gateway queueing,
-    upstream inference, and waiting for the complete response (stream=False).
-    """
-    if not settings.vision_key or not settings.vision_base_url or settings.vision_model == "your-vision-model":
-        raise RuntimeError("Configure VISION_API_BASE_URL, VISION_API_KEY, VISION_MODEL")
-
-    t0 = time.perf_counter()
-    image_url = image_to_data_url(image_bytes)
-    preprocess_s = time.perf_counter() - t0
-    print(f"    [1/4] 图像预处理: {preprocess_s:.2f}s", flush=True)
-
-    print("    [2/4] 视觉模型 API: 请求中...", flush=True)
-    t_api = time.perf_counter()
-    from openai import OpenAI
-    client = OpenAI(api_key=settings.vision_key, base_url=settings.vision_base_url, timeout=120, max_retries=1)
-    response = client.responses.create(
-        model=settings.vision_model,
-        input=[{"role": "user", "content": [
-            {"type": "input_text", "text": SCENE_PROMPT},
-            {"type": "input_image", "image_url": image_url, "detail": "auto"},
-        ]}], stream=False, max_output_tokens=600
-    )
-    api_s = time.perf_counter() - t_api
-    print(f"    [2/4] 视觉模型 API: {api_s:.2f}s", flush=True)
-
-    t_parse = time.perf_counter()
-    text = extract_response_text(response)
-    data = parse_json_response(text)
-    out = {
-        "caption": str(data["caption"]).strip(),
-        "weather": str(data.get("weather", "unknown")),
-        "lighting": str(data.get("lighting", "unknown")),
-        "road_type": str(data.get("road_type", "unknown")),
-        "scene_type": str(data.get("scene_type", "unknown")),
-        "objects": data.get("objects", []),
-        "risks": data.get("risks", []),
-        "is_cloudy_candidate": int(data.get("is_cloudy_candidate", 0)),
-        "is_daytime": int(data.get("is_daytime", 0)),
-        "is_nighttime": int(data.get("is_nighttime", 0)),
-    }
-    if not isinstance(out["objects"], list) or not isinstance(out["risks"], list):
-        raise ValueError("objects / risks should be lists")
-    parse_s = time.perf_counter() - t_parse
-    print(f"    [3/4] Caption/Metadata 解析: {parse_s:.2f}s", flush=True)
-
-    if timings is not None:
-        timings.update(preprocess_s=preprocess_s, api_s=api_s, parse_s=parse_s)
-    return out
-
-
-def annotate_to_csv(records, path: Path) -> int:
-    """Resume by fileName; print phase timings and persist each successful result."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    existing = {}
-    if path.is_file():
-        with path.open(encoding="utf-8", newline="") as f:
-            existing = {row["fileName"]: row for row in csv.DictReader(f)}
-    done = 0
-    skipped = 0
-    total = len(records) if hasattr(records, "__len__") else None
-    batch_started = time.perf_counter()
-
-    for index, record in enumerate(records, 1):
-        filename = str(record["fileName"])
-        progress = f"[{index}/{total}]" if total is not None else f"[{index}]"
-        if filename in existing:
-            skipped += 1
-            print(f"{progress} {filename}: CSV 已存在，跳过", flush=True)
-            continue
-
-        print(f"{progress} 开始处理: {filename}", flush=True)
-        image_started = time.perf_counter()
-        timings: dict[str, float] = {}
-        try:
-            analysis = analyze_scene(bytes(record["picture"]), timings=timings)
-
-            t_csv = time.perf_counter()
-            row = {"fileName": filename, **analysis}
-            row["objects"] = json.dumps(row["objects"], ensure_ascii=False)
-            row["risks"] = json.dumps(row["risks"], ensure_ascii=False)
-            existing[filename] = row
-            with path.open("w", encoding="utf-8", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=FIELDS)
-                writer.writeheader()
-                writer.writerows(existing.values())
-            csv_s = time.perf_counter() - t_csv
-            print(f"    [4/4] CSV 保存: {csv_s:.2f}s", flush=True)
-            done += 1
-            print(f"    单张总耗时: {time.perf_counter() - image_started:.2f}s"
-                  f"（API: {timings['api_s']:.2f}s）", flush=True)
-            print(f"    Caption: {analysis['caption']}", flush=True)
-        except Exception as exc:
-            print(f"    处理失败（已耗时 {time.perf_counter() - image_started:.2f}s，"
-                  f"错误类型: {type(exc).__name__}），该图片未完成标注", flush=True)
-            raise
-
-    print(f"新标注: {done} 张；跳过已有: {skipped} 张；CSV 总记录: {len(existing)}；"
-          f"本轮耗时: {time.perf_counter() - batch_started:.2f}s", flush=True)
-    return done
-
-
-RUN_CAPTION_LABELING = True
-if RUN_CAPTION_LABELING:
-    assert not raw_df.empty, '请先准备原始图片表'
-    annotate_to_csv(raw_df.to_dict('records'), settings.caption_csv)
-if settings.caption_csv.is_file():
-    labels_df = pd.read_csv(settings.caption_csv)
-    display(labels_df[['fileName','caption','weather','lighting','road_type']].head())
-else:
-    labels_df = None
-    print('未找到 Caption CSV；需要标注时将 RUN_CAPTION_LABELING 改 True。')
-````
+[Notebook 01 - Step 6](notebooks/01_multimodal_data_processing.ipynb#step-6--调用视觉-llm-生成-caption-和-metadata)
 
 
 ![Notion 原文配图 17](images/notion-17.png)
@@ -1078,73 +477,7 @@ else:
 
 <b>可调参数</b>：<code>RUN_CREATE_ENRICHED=True</code> 将原始图片与 CSV 标注合并并写入增强表，<code>False</code> 跳过创建/写入并读取已有表；<code>.env</code> 中 <code>PAIMON_ENRICHED_TABLE</code> 指定表名。CSV 文件名集合必须与原始表完全一致；已有增强表也会校验文件名集合，不匹配时报错
 
-```py
-# Schema / 数据转换 / 建表 / 写入
-import uuid
-def make_enriched_records(raw_df: pd.DataFrame, labels: list[dict]) -> list[dict]:
-    labels_by_name = {str(row["fileName"]): row for row in labels}
-    if len(labels_by_name) != len(labels):
-        raise ValueError("Duplicate caption filenames")
-    if raw_df["fileName"].duplicated().any():
-        raise ValueError("Duplicate source filenames")
-    if set(raw_df["fileName"]) != set(labels_by_name):
-        raise ValueError("Raw image and caption fileName sets differ")
-    rows = []
-    for row in raw_df.to_dict("records"):
-        name = str(row["fileName"])
-        meta = labels_by_name[name]
-        weather, lighting = meta.get("weather", "unknown"), meta.get("lighting", "unknown")
-        objects = meta.get("objects", [])
-        risks = meta.get("risks", [])
-        objects = json.loads(objects) if isinstance(objects, str) else objects
-        risks = json.loads(risks) if isinstance(risks, str) else risks
-        metadata = {
-            "weather": weather, "lighting": lighting, "road_type": meta.get("road_type", "unknown"),
-            "scene_category": meta.get("scene_type", "unknown"), "objects": objects, "risks": risks,
-        }
-        rows.append({
-            "id": str(uuid.uuid5(uuid.NAMESPACE_URL, name)), "fileName": name,
-            "picture": bytes(row["picture"]), "caption": str(meta["caption"]),
-            "metadata": json.dumps(metadata, ensure_ascii=False), "vector": None,
-            "is_cloudy_candidate": int(str(weather).lower() == "cloudy"),
-            "is_daytime": int(str(lighting).lower() == "daytime"),
-            "is_nighttime": int(str(lighting).lower() == "nighttime"),
-            "weather": weather, "lighting": lighting, "road_type": meta.get("road_type", "unknown"),
-            "scene_type": f"{lighting}_{weather}", "dataset_tag": 1,
-        })
-    return rows
-
-
-def create_enriched_table() -> None:
-    import pyarrow as pa
-    # Helpers defined earlier in Step 4
-    cat = connect_catalog()
-    source = read_table(cat.get_table(settings.raw_table))
-    if source.empty:
-        raise ValueError("Raw image table empty")
-    with settings.caption_csv.open(encoding="utf-8", newline="") as f:
-        labels = list(csv.DictReader(f))
-    rows = make_enriched_records(source, labels)
-    table = ensure_table(cat, settings.enriched_table, ENRICHED_SCHEMA)
-    insert_if_empty(table, pa.Table.from_pylist(rows, schema=ENRICHED_SCHEMA))
-    print("Enriched rows:", len(read_table(table)))
-
-RUN_CREATE_ENRICHED = True
-if RUN_CREATE_ENRICHED:
-    assert labels_df is not None, '需先标注或提供 CSV'
-    create_enriched_table()
-else:
-    print('跳过建表 / 写入')
-enriched_database, enriched_table_name = settings.enriched_table.split('.', 1)
-if enriched_table_name in catalog.list_tables(enriched_database):
-    enriched_df = read_table(catalog.get_table(settings.enriched_table))
-    print('增强数据行数:',len(enriched_df))
-    if not enriched_df.empty:
-        display(enriched_df[['fileName','caption','weather','lighting','road_type']].head())
-else:
-    enriched_df = pd.DataFrame()
-    print('增强表尚不存在：需要先完成 Step 7')
-```
+[Notebook 01 - Step 7](notebooks/01_multimodal_data_processing.ipynb#step-7--创建多模态增强表并写入)
 
 
 ![Notion 原文配图 18](images/notion-18.png)
@@ -1156,67 +489,7 @@ else:
 
 <b>可调参数</b>：<code>RUN_SAMPLE_EMBEDDING=True</code> 对增强表第一张图片生成或读取缓存向量，<code>False</code> 跳过单图验证；
 
-```py
-# DashScope 向量服务、SHA256 本地缓存
-import numpy as np
-import hashlib
-def _embed(content: dict) -> np.ndarray:
-    if not settings.embedding_url or not settings.embedding_key:
-        raise RuntimeError("Set EMBEDDING_API_URL and EMBEDDING_API_KEY")
-    response = requests.post(
-        settings.embedding_url,
-        headers={"Authorization": f"Bearer {settings.embedding_key}", "Content-Type": "application/json"},
-        json={"model": settings.embedding_model, "input": {"contents": [content]}},
-        timeout=120,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    if payload.get("code"):
-        raise RuntimeError(f"Embedding API error code: {payload['code']}; {payload.get('message', '')}")
-    entries = payload.get("output", {}).get("embeddings", [])
-    if len(entries) != 1:
-        raise ValueError(f"Expected one embedding, received {len(entries)}")
-    vector = np.asarray(entries[0]["embedding"], dtype=np.float32)
-    if vector.shape != (settings.vector_dim,) or not np.isfinite(vector).all():
-        raise ValueError(f"Invalid embedding: {vector.shape}, expected {settings.vector_dim}")
-    return vector
-
-
-def _cached(key: bytes, kind: str, produce) -> np.ndarray:
-    settings.embedding_cache.mkdir(parents=True, exist_ok=True)
-    digest = hashlib.sha256(settings.embedding_model.encode() + kind.encode() + key).hexdigest()
-    path = settings.embedding_cache / (digest + ".npy")
-    if path.is_file():
-        vector = np.load(path, allow_pickle=False)
-    else:
-        vector = produce()
-        temp = path.with_suffix(".tmp.npy")
-        np.save(temp, vector)
-        temp.replace(path)
-    vector = np.asarray(vector, dtype=np.float32)
-    if vector.shape != (settings.vector_dim,) or not np.isfinite(vector).all():
-        raise ValueError("Invalid cached vector")
-    return vector
-
-
-def image_embedding(picture: bytes) -> np.ndarray:
-    raw = bytes(picture)
-    return _cached(raw, "image", lambda: _embed({"image": image_to_data_url(raw)}))
-
-
-def text_embedding(query: str) -> np.ndarray:
-    if not query.strip():
-        raise ValueError("Query must not be empty")
-    return _cached(query.encode("utf-8"), "text", lambda: _embed({"text": query}))
-
-RUN_SAMPLE_EMBEDDING = True
-if RUN_SAMPLE_EMBEDDING:
-    assert not enriched_df.empty, '请先准备增强表'
-    vector = image_embedding(enriched_df.iloc[0]['picture'])
-    print('向量维度:', vector.shape, '范数:', np.linalg.norm(vector))
-else:
-    print('跳过 Embedding API 调用')
-```
+[Notebook 01 - Step 8](notebooks/01_multimodal_data_processing.ipynb#step-8--生成-1152-维图像文本-embedding)
 
 
 ![Notion 原文配图 19](images/notion-19.png)
@@ -1230,57 +503,7 @@ else:
 
 <b>可调参数</b>：<code>RUN_VECTOR_BACKFILL=True</code> 执行批量向量回填，<code>False</code> 跳过；调用参数 <code>confirm_overwrite=True</code> 明确允许覆盖，设为 <code>False</code> 会在需要覆盖时中止。备份保存在 <code>.env</code> 的 <code>WORK_DIR/backups</code>。执行顺序为备份、生成向量、Overwrite、回读校验；已有完整向量时跳过，空表/重复 ID/部分已有向量时中止。<b>会修改云端数据并可能产生大量 Embedding 费用</b>，请确认目标表、无并发写入且备份空间充足。
 
-```py
-# 只在明确开启、已确认无并发写入时执行 destructive overwrite
-from datetime import datetime, timezone
-def _vector_present(value) -> bool:
-    return value is not None and not (isinstance(value, float) and np.isnan(value))
-
-
-def backfill_vectors(*, confirm_overwrite: bool = False) -> Path | None:
-    """Backup, vectorize all, and overwrite only after explicit confirmation."""
-    import pyarrow as pa
-    import pyarrow.parquet as pq
-    # Helpers defined earlier in Step 4
-    cat = connect_catalog()
-    table = cat.get_table(settings.enriched_table)
-    original = read_table(table)
-    if original.empty or original["id"].duplicated().any():
-        raise ValueError("Empty / duplicate-ID enriched table; inspect manually")
-    has = [_vector_present(v) for v in original["vector"]]
-    if all(has):
-        for v in original["vector"]:
-            if len(v) != settings.vector_dim:
-                raise ValueError("Unexpected vector dimension")
-        print("Already embedded; no overwrite needed")
-        return None
-    if any(has):
-        raise ValueError("Partially embedded table; inspect manually before overwrite")
-    if not confirm_overwrite:
-        raise RuntimeError("Overwrite required; rerun with --confirm-overwrite after reviewing table/backup policy")
-    backup_dir = settings.work_dir / "backups"
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    backup_path = backup_dir / f"enriched_before_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}.parquet"
-    pq.write_table(pa.Table.from_pandas(original, schema=ENRICHED_SCHEMA, preserve_index=False), backup_path)
-    print("Backup:", backup_path)
-    updated = original.copy()
-    updated["vector"] = [image_embedding(bytes(pic)).tolist() for pic in updated["picture"]]
-    if any(len(v) != settings.vector_dim for v in updated["vector"]):
-        raise RuntimeError("Vector dimension mismatch; aborting write")
-    write_arrow(table, pa.Table.from_pandas(updated, schema=ENRICHED_SCHEMA, preserve_index=False), overwrite=True)
-    result = read_table(table)
-    if len(result) != len(original) or any(not _vector_present(v) or len(v) != settings.vector_dim for v in result["vector"]):
-        raise RuntimeError("Post-overwrite verification failed; restore using backup")
-    print("Backfill verified:", len(result), "rows x", settings.vector_dim)
-    return backup_path
-
-RUN_VECTOR_BACKFILL = True  # 谨慎：会覆盖增强表
-if RUN_VECTOR_BACKFILL:
-    backfill_vectors(confirm_overwrite=True)
-    enriched_df = read_table(catalog.get_table(settings.enriched_table))
-else:
-    print('已跳过向量覆盖写入')
-```
+[Notebook 01 - Step 9](notebooks/01_multimodal_data_processing.ipynb#step-9--安全回填-paimon-向量字段)
 
 
 ![Notion 原文配图 20](images/notion-20.png)
@@ -1296,100 +519,7 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 <b>可调参数</b>：<code>q = vectors[0]</code> 中的索引选择查询图片；更换索引时同步修改 <code>exclude_index=0</code>，以排除查询图片自身。<code>cosine_topk(..., k=5)</code> 的 <code>k</code> 控制返回数量。此步骤使用已有图像向量，不调用 API、不改写 Paimon。
 
-```py
-import io
-import matplotlib.pyplot as plt
-from PIL import Image
-
-def cosine_topk(vectors: np.ndarray, query_vector: np.ndarray, k: int = 5,
-                exclude_index: int | None = None) -> list[tuple[int, float]]:
-    values = np.asarray(vectors, dtype=np.float32)
-    query = np.asarray(query_vector, dtype=np.float32)
-    if values.ndim != 2 or query.shape != (values.shape[1],):
-        raise ValueError("Embedding dimensions differ")
-    norms = np.linalg.norm(values, axis=1)
-    q_norm = np.linalg.norm(query)
-    if np.any(norms == 0) or q_norm == 0:
-        raise ValueError("Zero-norm vector")
-    scores = (values / norms[:, None]) @ (query / q_norm)
-    if exclude_index is not None:
-        scores[exclude_index] = -np.inf
-    order = np.argsort(-scores, kind="stable")
-    return [(int(i), float(scores[i])) for i in order[:min(k, len(order))] if np.isfinite(scores[i])]
-
-if enriched_df.empty or any(not _vector_present(v) for v in enriched_df.get('vector', [])):
-    print('增强表缺少图像向量；请先完成 Step 8–9')
-else:
-    vectors = np.stack([np.asarray(v, dtype=np.float32) for v in enriched_df['vector']])
-    q = vectors[0]
-    for rank,(idx,score) in enumerate(cosine_topk(vectors,q,k=5,exclude_index=0),1):
-        print(f'{rank}. cosine={score:.4f}',enriched_df.iloc[idx]['fileName'])
-
-
-if (
-    enriched_df.empty
-    or 'vector' not in enriched_df.columns
-    or any(not _vector_present(v) for v in enriched_df['vector'])
-):
-    print('增强表缺少图像向量；请先完成 Step 8–9')
-
-else:
-    # 1. 读取全部图片 Embedding
-    vectors = np.stack([
-        np.asarray(v, dtype=np.float32)
-        for v in enriched_df['vector']
-    ])
-
-    # 2. 选择第一张图片作为目标图
-    query_idx = 0
-    q = vectors[query_idx]
-
-    # 3. 检索最相似的 5 张图片（排除自身）
-    results = cosine_topk(
-        vectors, q, k=5, exclude_index=query_idx
-    )
-
-    # 4. 目标图片 + Top-5 检索结果
-    items = [(query_idx, None)] + results
-
-    fig, axes = plt.subplots(2, 3, figsize=(17, 10))
-    axes = axes.flatten()
-
-    for pos, (idx, score) in enumerate(items):
-        row = enriched_df.iloc[idx]
-
-        # 从 Paimon picture 字段读取图片二进制
-        with Image.open(io.BytesIO(bytes(row['picture']))) as img:
-            axes[pos].imshow(img.convert('RGB'))
-
-        axes[pos].axis('off')
-
-        if score is None:
-            title = "Query Image"
-        else:
-            title = f"Top {pos} | Cosine: {score:.4f}"
-
-        axes[pos].set_title(
-            title + "\n" + str(row['fileName'])[-42:],
-            fontsize=10
-        )
-
-    # 隐藏没有使用的子图
-    for ax in axes[len(items):]:
-        ax.axis('off')
-
-    plt.tight_layout()
-    plt.show()
-
-    # 5. 同时打印检索结果及 Caption
-    print("\n========== Top-5 检索结果 ==========")
-
-    for rank, (idx, score) in enumerate(results, 1):
-        row = enriched_df.iloc[idx]
-        print(f"\nTop {rank} | cosine={score:.4f}")
-        print("文件名:", row['fileName'])
-        print("Caption:", row['caption'])
-```
+[Notebook 01 - Step 10.1](notebooks/01_multimodal_data_processing.ipynb#step-101--以图搜图下一个-code-cell)
 
 
 ![Notion 原文配图 21](images/notion-21.png)
@@ -1401,125 +531,7 @@ else:
 
 <b>可调参数</b>：<code>RUN_TEXT_RETRIEVAL=True</code> 执行文本检索，<code>False</code> 跳过；<code>query</code> 设置自然语言查询内容，<code>cosine_topk(..., k=5)</code> 的 <code>k</code> 控制返回数量。使用 Step 8 的 Embedding 配置和 Step 9 的图像向量；文本向量也调用的是tongyi的vison模型，输出维度也是1152，这样才能在同维语义空间通过余弦比较相似
 
-```py
-
-import io
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from PIL import Image
-from IPython.display import display
-
-# ==================== Step 10：以文搜图 ====================
-
-RUN_TEXT_RETRIEVAL = True
-
-# 目标文本：希望从自动驾驶图片中检索出的场景
-query = (
-    "A cloudy daytime urban intersection with "
-    "pedestrians, cars and traffic lights."
-)
-
-if RUN_TEXT_RETRIEVAL:
-
-    # 1. 检查增强表和 Embedding 是否准备完成
-    # Step 9 已将每张图片的 1152 维向量回填到 Paimon
-    assert not enriched_df.empty, "增强表为空，请先完成 Step 7"
-    assert 'vector' in enriched_df.columns, "缺少 vector 字段"
-    assert all(
-        _vector_present(v) for v in enriched_df['vector']
-    ), "存在未生成 Embedding 的图片，请先完成 Step 9"
-
-    # 2. 读取所有图片向量
-    # 如果有 20 张图片：
-    # vectors.shape = (20, 1152)
-    vectors = np.stack([
-        np.asarray(v, dtype=np.float32)
-        for v in enriched_df['vector']
-    ])
-
-    # 3. 将查询文本转换成 1152 维向量
-    # 调用 tongyi-embedding-vision-plus（已有缓存则直接读取）
-    # qvec.shape = (1152,)
-    qvec = text_embedding(query)
-
-    print("Query:", query)
-    print("图片总数:", len(enriched_df))
-    print("图片向量维度:", vectors.shape)
-    print("文本向量维度:", qvec.shape)
-
-    # 4. 计算文本向量与所有图片向量的余弦相似度
-    # cosine_topk 内部先对向量做 L2 归一化，
-    # 再通过矩阵乘法计算相似度并降序排列。
-    #
-    # 返回 [(图片行索引, 余弦相似度), ...]
-    results = cosine_topk(vectors, qvec, k=5)
-
-    # 5. 输出 Top-5 检索结果表格
-    result_df = pd.DataFrame([
-        {
-            'rank': rank,
-            'score': score,
-            'fileName': enriched_df.iloc[idx]['fileName'],
-            'caption': enriched_df.iloc[idx]['caption']
-        }
-        for rank, (idx, score) in enumerate(results, 1)
-    ])
-
-    print("\n========== Top-5 检索结果 ==========")
-    display(result_df)
-
-    # 6. 可视化 Top-5 图片
-    # 目标为文本 Query，因此将其展示在图表顶部。
-    # 每张图显示排名、余弦相似度和文件名。
-    if results:
-        cols = min(3, len(results))
-        rows = (len(results) + cols - 1) // cols
-
-        fig, axes = plt.subplots(
-            rows, cols,
-            figsize=(5.8 * cols, 4.5 * rows),
-            squeeze=False
-        )
-        axes = axes.flatten()
-
-        for rank, (idx, score) in enumerate(results, 1):
-            row = enriched_df.iloc[idx]
-            ax = axes[rank - 1]
-
-            # 从 Paimon picture 字段读取 JPEG 图片
-            with Image.open(
-                io.BytesIO(bytes(row['picture']))
-            ) as img:
-                ax.imshow(img.convert('RGB'))
-
-            ax.axis('off')
-
-            ax.set_title(
-                f"Top {rank} | Cosine: {score:.4f}\n"
-                f"{str(row['fileName'])[-45:]}",
-                fontsize=10
-            )
-
-        # 隐藏未使用的子图位置
-        for ax in axes[len(results):]:
-            ax.axis('off')
-
-        # 图表顶部展示查询文本
-        fig.suptitle(
-            "Text-to-Image Retrieval\n" + query,
-            fontsize=13,
-            fontweight='bold',
-            y=1.02
-        )
-
-        plt.tight_layout()
-        plt.show()
-
-else:
-    print('以文搜图关闭；需要时将 RUN_TEXT_RETRIEVAL 改 True。')
-
-```
+[Notebook 01 - Step 10.2](notebooks/01_multimodal_data_processing.ipynb#step-102--以文搜图自然语言查询-top-5)
 
 
 ![Notion 原文配图 22](images/notion-22.png)
@@ -1549,6 +561,94 @@ else:
 
 **Prompt / 图片 / 解码配置必须保持一致**，才能公平比较 Base 与 LoRA；`prepare_model_for_kbit_training` 后不可重复对同一模型调用 `get_peft_model`。
 
+### Step 0 · 环境准备 / Restart Kernel
+
+安装依赖并配置仓库根目录的 `.env`，然后重启 Notebook Kernel。本教程使用 A10 24GB、NF4 + FP16 和 eager attention，沿用 `constraints-cu126.txt` 中的 PyTorch 版本约束。
+
+[Notebook 02 - Step 0](notebooks/02_multimodal_model_training_inference.ipynb#step-0--环境准备--restart-kernel)
+
+<!-- 待添加：环境准备截图与实践评论。 -->
+
+### Step 1 · 加载 `.env` 并检查 A10 GPU
+
+加载配置并检查 Python、依赖版本、CUDA、GPU 型号及计算能力，通过 GPU 张量运算确认环境可用。配置显示 `configured` 仅表示变量非空，不代表云端认证成功。
+
+[Notebook 02 - Step 1](notebooks/02_multimodal_model_training_inference.ipynb#step-1--加载-env-并检查-a10-gpu)
+
+<!-- 待添加：A10 环境检查输出截图与实践评论；不要展示密钥。 -->
+
+### Step 2 · 从本地 JSONL 复用 19/1 划分，或从 Paimon 重新导出
+
+优先复用已有的 `train.jsonl`、`validation.jsonl` 和划分记录；首次准备数据时再开启 `RUN_EXPORT_FROM_PAIMON=True`。保持验证图片不变，避免重新划分后无法公平比较微调前后的输出。
+
+[Notebook 02 - Step 2](notebooks/02_multimodal_model_training_inference.ipynb#step-2--从本地-jsonl-复用-191-划分或从-paimon-重新导出)
+
+<!-- 待添加：导出结果、训练/验证样本数截图与实践评论。 -->
+
+### Step 3 · 可视化样本、Caption 统计与数据集分布
+
+预览图片与 Caption，检查样本数量及 Caption 长度分布。20 张相似连续帧用于跑通工程流程，不代表覆盖了不同道路、天气和光照条件。
+
+[Notebook 02 - Step 3](notebooks/02_multimodal_model_training_inference.ipynb#step-3--可视化样本caption-统计与数据集分布)
+
+<!-- 待添加：样本预览、Caption 统计截图与实践评论。 -->
+
+### Step 4 · ModelScope 模型缓存与 NF4/FP16 量化加载
+
+下载或复用 ModelScope 中的 `Qwen/Qwen2-VL-2B-Instruct` 缓存，以 4-bit NF4 存储权重、FP16 计算。加载后保留当前 Kernel 中的 `model` 与 `processor`，供后续推理和训练使用。
+
+[Notebook 02 - Step 4](notebooks/02_multimodal_model_training_inference.ipynb#step-4--modelscope-模型缓存与-nf4fp16-量化加载)
+
+<!-- 待添加：模型加载输出、显存占用截图与实践评论。 -->
+
+### Step 5 · 基础模型同图推理：固定 Prompt + 解码参数
+
+使用未加载 LoRA 的基础模型生成基线，保存为 `baseline_prediction.json`。记录验证图片、Prompt 和生成参数，后续微调推理使用相同配置。
+
+[Notebook 02 - Step 5](notebooks/02_multimodal_model_training_inference.ipynb#step-5--基础模型同图推理固定-prompt--解码参数)
+
+<!-- 待添加：验证图片、基础模型输出截图与实践评论。 -->
+
+### Step 6 · QLoRA：参数高效微调与 Adapter 防重复挂载
+
+冻结基础模型权重，仅对 Q/K/V/O Attention Linear 层插入 LoRA，配置为 `r=8`、`alpha=16`、`dropout=0.05`。检查可训练参数数量，避免对同一模型重复挂载 Adapter。
+
+[Notebook 02 - Step 6](notebooks/02_multimodal_model_training_inference.ipynb#step-6--qlora参数高效微调与-adapter-防重复挂载)
+
+<!-- 待添加：LoRA 配置、可训练参数数量截图与实践评论。 -->
+
+### Step 7 · 监督标签检查：只对 Assistant Caption 计算 Loss
+
+检查实际参与监督的文本。图像 Token、用户 Prompt 和分隔 Token 不应进入监督目标，前缀标签通过 `labels[:prefix_len]=-100` 屏蔽，仅对 Assistant Caption 计算 Loss。
+
+[Notebook 02 - Step 7](notebooks/02_multimodal_model_training_inference.ipynb#step-7--监督标签检查只对-assistant-caption-计算-loss)
+
+<!-- 待添加：有效监督文本、Token 检查截图与实践评论。 -->
+
+### Step 8 · 单样本 Forward / Loss / Backward（不更新权重）
+
+按需开启 `RUN_GRADIENT_SMOKE_TEST`，用单样本检查 Loss 和 LoRA 梯度是否有限、是否存在非零梯度。这一步不执行 `optimizer.step()`，不进行权重更新。
+
+[Notebook 02 - Step 8](notebooks/02_multimodal_model_training_inference.ipynb#step-8--单样本-forward--loss--backward不更新权重)
+
+<!-- 待添加：单样本 Loss、梯度检查截图与实践评论；若跳过可注明。 -->
+
+### Step 9 · 使用 19 张图片执行 QLoRA，并保存 Adapter
+
+确认 GPU 费用后，手动设置 `RUN_TRAINING=True`。试跑配置为 19 张图片、1 Epoch、梯度累积 4，约 5 次优化器更新；训练后保存 Adapter。已有 `adapter_config.json` 时禁止覆盖。
+
+[Notebook 02 - Step 9](notebooks/02_multimodal_model_training_inference.ipynb#step-9--使用-19-张图片执行-qlora并保存-adapter)
+
+<!-- 待添加：训练日志、Loss、耗时、显存及 Adapter 保存结果截图与实践评论。 -->
+
+### Step 10 · 同图、同 Prompt 微调后推理与结果对比
+
+保存 LoRA Adapter 后，使用相同图片、Prompt 和生成参数执行微调后推理，保存 `inference_comparison.json`。对照参考 Caption、Base 和 LoRA 输出，记录具体变化；小样本同图对比不能证明新场景泛化能力提升。
+
+[Notebook 02 - Step 10](notebooks/02_multimodal_model_training_inference.ipynb#step-10--同图同-prompt-微调后推理与结果对比)
+
+<!-- 待添加：同图 Base / LoRA 输出对比截图与实践评论。 -->
+
 ## 5. 实测结果与评价边界
 
 | 项目 | 本次 DSW 实验 |
@@ -1577,11 +677,6 @@ else:
 - **`NOT configured`**：检查 `.env` 文件是否放在仓库根目录，以及变量名是否与 [.env.example](.env.example) 一致。Notebook 仅确认配置非空；DLF 真正的网络/权限验证在 Notebook 01 Step 4。
 - **DLF AccessDenied / Trusted VPC / DatabaseNoPermission**：检查 REST API 开通、Warehouse、OSS 与 RAM 授权、DSW 网络环境。
 - **LoRA 重复挂载**：不要在已挂 Adapter 的模型上重复调用 `get_peft_model()`；重启 Kernel 后重新加载基础模型和 Adapter。
-
-## 7. 安全、成本、测试与参考资料
-
-- **原始文件 / 密钥**：`.env`、API Key、图像、训练数据、模型、Adapter、向量缓存均不上传仓库。若密钥曾出现在公开 Git 历史，需要在云平台轮换。
-- **复现验证说明**：Notebook 已通过本地格式、语法、纯函数逻辑与独立依赖检查；新重构的 Notebook 版本尚未在真实 DSW 上重跑全程。涉及 DLF、付费 API 和 V100 GPU 的路径仍需在你的 DSW 环境中确认。
 
 官方参考：[阿里云 PAI](https://help.aliyun.com/zh/pai/) · [阿里云 DLF](https://help.aliyun.com/zh/dlf/) · [nuScenes](https://www.nuscenes.org/) · [ModelScope Qwen2-VL](https://modelscope.cn/models/Qwen/Qwen2-VL-2B-Instruct) · [Hugging Face bitsandbytes](https://huggingface.co/docs/transformers/quantization/bitsandbytes)
 
