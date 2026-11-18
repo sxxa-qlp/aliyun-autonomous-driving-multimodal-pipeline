@@ -593,7 +593,7 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 ### Step 3 · 可视化样本、Caption 统计与数据集分布
 
-预览图片与 Caption，检查样本数量及 Caption 长度分布。20 张相似连续帧用于跑通工程流程，不代表覆盖了不同道路、天气和光照条件。
+预览图片与 Caption，检查样本数量及 Caption 长度分布。主要用于训练前的数据检查，例如观察描述是否普遍过长、过短，或者有没有长度明显异常的样本。
 
 [Notebook 02 - Step 3](notebooks/02_multimodal_model_training_inference.ipynb#step-3--可视化样本caption-统计与数据集分布)
 
@@ -605,7 +605,29 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 ### Step 4 · ModelScope 模型缓存与 NF4/FP16 量化加载
 
-下载或复用 ModelScope 中的 `Qwen/Qwen2-VL-2B-Instruct` 缓存，以 4-bit NF4 存储权重、FP16 计算。加载后保留当前 Kernel 中的 `model` 与 `processor`，供后续推理和训练使用。
+首次的话会从ModelScope魔搭社区下载`Qwen/Qwen2-VL-2B-Instruct`并缓存到本地，之后运行会复用。以 4-bit NF4 存储权重、FP16 计算。加载后保留当前 Kernel 中的 `model` 与 `processor`，供后续推理和训练使用。
+
+**processor预处理配置参数：**
+
+- `path`：从这个目录加载模型配套的处理器配置、分词器等文件。
+- `min_pixels / max_pixels`：设置图像预处理时的最小、最大像素面积，也就是大致约束图片的“宽 × 高”，一个token能描述28*28像素，tokens越大图片分辨率越高，相应地会需要更多的显存。
+- `use_fast=False`：选择非 fast 的处理器实现；是否支持 fast，要看 Transformers 版本和对应处理器实现。
+- `local_files_only=True`：这次加载只读取本地文件
+
+**quantization创建4-bit量化配置**
+
+- `AutoProcessor`：负责准备模型的输入数据。
+- `BitsAndBytesConfig`：负责定义权重量化策略。
+- `Qwen2VLForConditionalGeneration`：负责构建模型、加载权重，并按量化配置部署到 GPU。
+
+**model 加载基础模型，并放到第 0 张 GPU**
+
+- `path`：从指定的模型目录读取配置和预训练权重。
+- `quantization_config=quantization`：使用前面定义的 NF4 4-bit 量化配置加载支持量化的层。
+- `torch_dtype=torch.float16`：未量化的浮点部分使用 FP16；量化层的计算类型由前面的量化配置指定。
+- `device_map={"": 0}`：把整个模型分配到第 0 张 GPU，也就是你的单张 A10。
+- `attn_implementation="eager"`：使用 eager Attention 实现。
+- `local_files_only=True`：仅从本地加载，不在这一步联网下载。
 
 [Notebook 02 - Step 4](notebooks/02_multimodal_model_training_inference.ipynb#step-4--modelscope-模型缓存与-nf4fp16-量化加载)
 
