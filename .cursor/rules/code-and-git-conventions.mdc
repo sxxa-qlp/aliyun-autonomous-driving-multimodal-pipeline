@@ -1,0 +1,22 @@
+---
+description: Project code style, branch naming, and safe Git workflow
+alwaysApply: true
+---
+
+# Code and Git Conventions
+
+- Name new branches `YYMMDD-Feature-description`, using the creation date,
+  literal `Feature`, and a concise English kebab-case description.
+- Example: `261124-Feature-model-training-notes`.
+- Follow the applicable Google language style guide for new or modified code;
+  use the Google Python Style Guide for Python and notebook code.
+- Keep changes focused; do not reformat unrelated code or rewrite the user's prose.
+- Place explanatory code comments above the corresponding code, not at line end.
+- Before committing, inspect status, staged and unstaged diffs, and recent history.
+- Use concise imperative commit subjects explaining the purpose of the change;
+  preserve the repository's existing `docs:`, `fix:`, or `feat:` convention.
+- Commit and push only when explicitly requested; stage only authorized files.
+- Never commit credentials, local `.env`, model weights, or unrelated local scripts.
+- Do not merge into the default branch, force-push, or rewrite published commits
+  without explicit permission. Let the user decide whether to merge a review branch.
+- Preserve unrelated local changes; ask before discarding or overwriting them.
