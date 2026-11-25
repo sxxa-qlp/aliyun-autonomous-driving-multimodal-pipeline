@@ -9,7 +9,6 @@
 - 学习并熟悉自动驾驶图像的多模态数据处理pipeline 
 
   **Multimodal Data Processing of Autonomous Driving Images**：前视图像 → Paimon → Caption / Metadata → Embedding → 向量检索。
-
 - 学习并熟悉多模态数据下的模型训练与推理
 
   **Multimodal Model Training & Inference Pipeline**：Paimon → 固定训练/验证划分 → Qwen2-VL 基线推理 → QLoRA → 同图推理对比。
@@ -52,7 +51,7 @@
 ### 1.创建DSW
 
 1. 在 [阿里云控制台](https://home.console.aliyun.com/) 登录。
-2. 打开 [PAI 控制台](https://pai.console.aliyun.com/)，选择 **华东 1（杭州）`cn-hangzhou`**，创建或选择工作空间。
+2. 打开 [PAI 控制台](https://pai.console.aliyun.com/)，选择 **华东 1（杭州）**`cn-hangzhou`，创建或选择工作空间。
 3. 在工作空间中进入 **交互式建模（DSW）**，创建实例。
 4. 选择兼容 CUDA 的镜像 / Python 3.11 环境；配置系统云盘。
 
@@ -82,23 +81,22 @@
 
    ![Notion 原文配图 04](images/notion-04.png)
 
-   ![Notion 原文配图 05](images/notion-05.png)
-
+     ![Notion 原文配图 05](images/notion-05.png)
 2. 回到DLF首页同步RAM授权，注意地域要确认和DSW区域一致。我的DSW在杭州1，这里用上海1演示。
 
    ![Notion 原文配图 06](images/notion-06.png)
 
-   创建DLF catalogs
+     创建DLF catalogs
 
-   ![Notion 原文配图 07](images/notion-07.png)
+     ![Notion 原文配图 07](images/notion-07.png)
 
-   对这个DLF数据目录里面的Paimon表授权读写操作
+     对这个DLF数据目录里面的Paimon表授权读写操作
 
-   ![Notion 原文配图 08](images/notion-08.png)
+     ![Notion 原文配图 08](images/notion-08.png)
 
-   读写操作要分别授权，因为会从这里读原始图，会写入多模态的数据
+     读写操作要分别授权，因为会从这里读原始图，会写入多模态的数据
 
-   ![Notion 原文配图 09](images/notion-09.png)
+     ![Notion 原文配图 09](images/notion-09.png)
 
 ### 3.准备模型密钥
 
@@ -106,7 +104,6 @@
 2. **多模态 Embedding**：通义 `tongyi-embedding-vision-plus`，使用百炼 **DashScope 原生多模态 Embedding 接口**，配置 `EMBEDDING_API_URL` 和 `EMBEDDING_API_KEY`；本次结果为 1152 维。注意，这里必须使用百炼提供的 **DashScope 接口**，[官方](https://docs.bailian.console.aliyun.com/zh/model-studio/embedding#:~:text=%E5%A4%9A%E6%A8%A1%E6%80%81%E7%8B%AC%E7%AB%8B%E5%90%91%E9%87%8F%E5%8C%96%E5%8A%9F%E8%83%BD%E9%9C%80%E8%A6%81%E9%80%9A%E8%BF%87%20DashScope%20SDK%20%E6%88%96%20API%20%E6%9D%A5%E8%B0%83%E7%94%A8%EF%BC%8C%E4%B8%8D%E6%94%AF%E6%8C%81%20OpenAI%20%E5%85%BC%E5%AE%B9%E6%8E%A5%E5%8F%A3%E8%B0%83%E7%94%A8%E6%88%96%E5%9C%A8%E6%8E%A7%E5%88%B6%E5%8F%B0%E7%9B%B4%E6%8E%A5%E4%BD%BF%E7%94%A8%E3%80%82)文档说了这里不支持OpenAI兼容URL。
 
    ![Notion 原文配图 10](images/notion-10.png)
-
 3. **训练基础模型**：`Qwen/Qwen2-VL-2B-Instruct` 从 [ModelScope 魔搭](https://modelscope.cn/models/Qwen/Qwen2-VL-2B-Instruct) 下载到 DSW 云盘，**跳转对应的代码**
 
 ## 1. 工作流与源码导航
@@ -160,31 +157,31 @@ aliyun-autonomous-driving-multimodal-pipeline/
 
 ![Notion 原文配图 11](images/notion-11.png)
 
-| 变量 | 值 |
-| --- | --- |
-| `ALIBABA_CLOUD_ACCESS_KEY_ID` | 【必填】填写你自己的 RAM AccessKey ID。 |
-| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 【必填】填写你自己的 RAM AccessKey Secret。 |
-| `VISION_API_BASE_URL` | 【必填】填写视觉标注服务的 API Base URL。 |
-| `VISION_API_KEY` | 【必填】填写视觉标注服务的 API 密钥。 |
-| `EMBEDDING_API_KEY` | 【必填】填写对应 Embedding 服务的 API 密钥。 |
-| `VISION_MODEL` | 【指定使用值】`gpt-6.1-sol`，用于 Caption / Metadata。模板原值为 `your-vision-model`，需要在 `.env` 中修改。 |
-| `EMBEDDING_API_URL` | 【指定使用值】`https://YOUR_BAILIAN_ENDPOINT.cn-beijing.maas.aliyuncs.com/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding` |
-| `USE_FULL_MINI` | 【默认】`false` `false`：20 张图片跑流程。 `true`：全部 mini CAM\_FRONT 图片。 |
-| `ALIYUN_REGION` | 【默认】`cn-hangzhou`，与实际 DLF 服务地域一致。 |
-| `DLF_REST_URI` | 【默认】`https://dlfnext.cn-hangzhou.aliyuncs.com` |
-| `DLF_WAREHOUSE` | 【默认】`vehicle_lake_demo`，如与你创建的 Warehouse 不同则修改。 |
-| `DLF_OSS_ENDPOINT` | 【默认】`oss-cn-hangzhou.aliyuncs.com`，按实际 OSS 配置确认。 |
-| `ALIBABA_CLOUD_SECURITY_TOKEN` | 【默认】留空；长期 RAM AccessKey 无需填写。使用 STS 临时凭证时需填写配套 Token。 |
-| `PAIMON_RAW_TABLE` | 【默认】`default.camfront_raw_images` 全量模式自动追加 `_full_mini` 后缀，已有该后缀时不重复追加。 |
-| `PAIMON_ENRICHED_TABLE` | 【默认】`default.camfront_ai_enriched` 全量模式自动追加 `_full_mini` 后缀，已有该后缀时不重复追加。 |
-| `EMBEDDING_MODEL` | 【默认】`tongyi-embedding-vision-plus` |
-| `EMBEDDING_VECTOR_DIM` | 【默认】`1152`，须与模型实际输出维度一致。 |
-| `WORK_DIR` | 【默认】`/mnt/systemDisk/ad_multimodal`，保存数据、标注 CSV、缓存和备份。 |
-| `MODEL_ID` | 【默认】`Qwen/Qwen2-VL-2B-Instruct`，后续训练的基础模型；本 Notebook 不执行训练。 |
-| `MODEL_CACHE_DIR` | 【默认】`/mnt/systemDisk/model_cache`，后续训练的模型缓存目录。 |
-| `SPLIT_RANDOM_SEED` | 【默认】`20260520`，后续训练/验证数据划分的随机种子。 |
-| `VALIDATION_RATIO` | 【默认】`0.05`，后续训练的验证集比例。 |
-| `IMAGE_MAX_TOKENS` | 【默认】`256`，后续训练的图像 token 预算参数。 |
+| 变量                                | 值                                                                                                                                        |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ALIBABA_CLOUD_ACCESS_KEY_ID`     | 【必填】填写你自己的 RAM AccessKey ID。                                                                                                             |
+| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 【必填】填写你自己的 RAM AccessKey Secret。                                                                                                         |
+| `VISION_API_BASE_URL`             | 【必填】填写视觉标注服务的 API Base URL。                                                                                                              |
+| `VISION_API_KEY`                  | 【必填】填写视觉标注服务的 API 密钥。                                                                                                                    |
+| `EMBEDDING_API_KEY`               | 【必填】填写对应 Embedding 服务的 API 密钥。                                                                                                           |
+| `VISION_MODEL`                    | 【指定使用值】`gpt-6.1-sol`，用于 Caption / Metadata。模板原值为 `your-vision-model`，需要在 `.env` 中修改。                                                     |
+| `EMBEDDING_API_URL`               | 【指定使用值】`https://YOUR_BAILIAN_ENDPOINT.cn-beijing.maas.aliyuncs.com/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding` |
+| `USE_FULL_MINI`                   | 【默认】`false` `false`：20 张图片跑流程。 `true`：全部 mini CAM\_FRONT 图片。                                                                               |
+| `ALIYUN_REGION`                   | 【默认】`cn-hangzhou`，与实际 DLF 服务地域一致。                                                                                                        |
+| `DLF_REST_URI`                    | 【默认】`https://dlfnext.cn-hangzhou.aliyuncs.com`                                                                                           |
+| `DLF_WAREHOUSE`                   | 【默认】`vehicle_lake_demo`，如与你创建的 Warehouse 不同则修改。                                                                                          |
+| `DLF_OSS_ENDPOINT`                | 【默认】`oss-cn-hangzhou.aliyuncs.com`，按实际 OSS 配置确认。                                                                                         |
+| `ALIBABA_CLOUD_SECURITY_TOKEN`    | 【默认】留空；长期 RAM AccessKey 无需填写。使用 STS 临时凭证时需填写配套 Token。                                                                                    |
+| `PAIMON_RAW_TABLE`                | 【默认】`default.camfront_raw_images` 全量模式自动追加 `_full_mini` 后缀，已有该后缀时不重复追加。                                                                  |
+| `PAIMON_ENRICHED_TABLE`           | 【默认】`default.camfront_ai_enriched` 全量模式自动追加 `_full_mini` 后缀，已有该后缀时不重复追加。                                                                 |
+| `EMBEDDING_MODEL`                 | 【默认】`tongyi-embedding-vision-plus`                                                                                                       |
+| `EMBEDDING_VECTOR_DIM`            | 【默认】`1152`，须与模型实际输出维度一致。                                                                                                                 |
+| `WORK_DIR`                        | 【默认】`/mnt/systemDisk/ad_multimodal`，保存数据、标注 CSV、缓存和备份。                                                                                   |
+| `MODEL_ID`                        | 【默认】`Qwen/Qwen2-VL-2B-Instruct`，后续训练的基础模型；本 Notebook 不执行训练。                                                                              |
+| `MODEL_CACHE_DIR`                 | 【默认】`/mnt/systemDisk/model_cache`，后续训练的模型缓存目录。                                                                                           |
+| `SPLIT_RANDOM_SEED`               | 【默认】`20260520`，后续训练/验证数据划分的随机种子。                                                                                                         |
+| `VALIDATION_RATIO`                | 【默认】`0.05`，后续训练的验证集比例。                                                                                                                   |
+| `IMAGE_MAX_TOKENS`                | 【默认】`256`，后续训练的图像 token 预算参数。                                                                                                            |
 
 在 JupyterLab 里通过 **Kernel → Restart Kernel** 重启
 
@@ -198,7 +195,7 @@ aliyun-autonomous-driving-multimodal-pipeline/
 
 ### Step 2 · 参数与环境检查
 
-**可调参数（在 `.env` 中设置）**：
+**可调参数（在** `.env` **中设置）**：
 
 环境检查中的 `configured` 只表示参数非空，不代表认证成功；Step 4 才验证真实连接。
 
@@ -338,8 +335,6 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 ![Part 2 Step 0 - 1](images/part2-step-00-01.png)
 
-[//]: # (待添加：环境准备截图与实践评论。)
-
 ### Step 1 · 加载 `.env` 并检查 A10 GPU
 
 加载配置并检查 Python、依赖版本、CUDA、GPU 型号及计算能力，通过 GPU 张量运算确认环境可用。配置显示 `configured` 仅表示变量非空，不代表云端认证成功。
@@ -348,8 +343,6 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 ![Part 2 Step 1 - 1](images/part2-step-01-01.png)
 
-[//]: # (待添加：A10 环境检查输出截图与实践评论；不要展示密钥。)
-
 ### Step 2 · 从本地 JSONL 复用 19/1 划分，或从 Paimon 重新导出
 
 优先复用已有的 `train.jsonl`、`validation.jsonl` 和划分记录；首次准备数据时再开启 `RUN_EXPORT_FROM_PAIMON=True`。保持验证图片不变，避免重新划分后无法公平比较微调前后的输出。
@@ -357,8 +350,6 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 [Notebook 02 - Step 2](notebooks/02_multimodal_model_training_inference.ipynb#step-2--从本地-jsonl-复用-191-划分或从-paimon-重新导出)
 
 ![Part 2 Step 2 - 1](images/part2-step-02-01.png)
-
-[//]: # (待添加：导出结果、训练/验证样本数截图与实践评论。)
 
 ### Step 3 · 可视化样本、Caption 统计与数据集分布
 
@@ -370,11 +361,13 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 ![Part 2 Step 3 - 2](images/part2-step-03-02.png)
 
-[//]: # (待添加：样本预览、Caption 统计截图与实践评论。)
-
 ### Step 4 · ModelScope 模型缓存与 NF4/FP16 量化加载
 
 首次的话会从ModelScope魔搭社区下载`Qwen/Qwen2-VL-2B-Instruct`并缓存到本地，之后运行会复用。以 4-bit NF4 存储权重、FP16 计算。加载后保留当前 Kernel 中的 `model` 与 `processor`，供后续推理和训练使用。
+
+- `AutoProcessor`：负责准备模型的输入数据。
+- `BitsAndBytesConfig`：负责定义权重量化策略。
+- `Qwen2VLForConditionalGeneration`：负责构建模型、加载权重，并按量化配置部署到 GPU。
 
 ```python
     # Qwen2-VL 按每个视觉 Token 约 28×28 像素设置图像缩放范围，限制显存开销。
@@ -408,9 +401,12 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 **quantization创建4-bit量化配置**
 
-- `AutoProcessor`：负责准备模型的输入数据。
-- `BitsAndBytesConfig`：负责定义权重量化策略。
-- `Qwen2VLForConditionalGeneration`：负责构建模型、加载权重，并按量化配置部署到 GPU。
+- `load_in_4bit=True`：开启 4-bit 权重量化加载
+- `bnb_4bit_quant_type="nf4"`：指定这 4 bit 怎样表示权重权重，以 4-bit 编码存储
+- `bnb_4bit_compute_dtype=torch.float16`：指定量化层的计算类型，需要运算时，底层根据量化编码和缩放信息反量化权重，并按配置的 FP16 计算类型使用它们。
+-  `bnb_4bit_use_double_quant=True`：再压缩量化信息。第一次量化除了保存权重编码，还需要保存每块权重的缩放系数等信息。
+
+  开启二次量化后，这些缩放信息本身也会被进一步量化压缩，从而再节省一些显存。
 
 ```python
     # 将整个模型放到第 0 张 GPU；非量化浮点部分使用 FP16，Attention 沿用 eager 实现。
@@ -426,7 +422,7 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 - `path`：从指定的模型目录读取配置和预训练权重。
 - `quantization_config=quantization`：使用前面定义的 NF4 4-bit 量化配置加载支持量化的层。
 - `torch_dtype=torch.float16`：未量化的浮点部分使用 FP16；量化层的计算类型由前面的量化配置指定。
-- `device_map={"": 0}`：把整个模型分配到第 0 张 GPU，也就是你的单张 A10。
+- `device_map={"": 0}`：把整个模型分配到第 0 张 GPU，也就是A10。
 - `attn_implementation="eager"`：使用 eager Attention 实现。
 - `local_files_only=True`：仅从本地加载，不在这一步联网下载。
 
@@ -435,8 +431,6 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 ![Part 2 Step 4 - 1](images/part2-step-04-01.png)
 
 ![Part 2 Step 4 - 2](images/part2-step-04-02.png)
-
-[//]: # (待添加：模型加载输出、显存占用截图与实践评论。)
 
 ### Step 5 · 基础模型同图推理：固定 Prompt + 解码参数
 
@@ -471,8 +465,6 @@ inference_mode使用推理模式，不会进行梯度更新
 
 ![Part 2 Step 5 - 1](images/part2-step-05-01.png)
 
-[//]: # (待添加：验证图片、基础模型输出截图与实践评论。)
-
 ### Step 6 · QLoRA：参数高效微调与 Adapter 防重复挂载
 
 LoRA 的思路是：基础模型的大部分参数保持不变，只训练少量新增参数。这个LoRA理解成一个adapter，外挂在基模的后面。
@@ -487,8 +479,6 @@ LoRA 的思路是：基础模型的大部分参数保持不变，只训练少量
 
 ![Part 2 Step 6 - 1](images/part2-step-06-01.png)
 
-[//]: # (待添加：LoRA 配置、可训练参数数量截图与实践评论。)
-
 LoRA文件夹里面包含：
 
 `adapter_model.safetensors`：保存训练得到的 A、B 矩阵等权重。
@@ -498,17 +488,39 @@ LoRA文件夹里面包含：
 默认普通 LoRA 的缩放系数为：lora_alpha / r，这保存在adapter_config.json里面；
 
 ```python
+    # 冻结基础权重并准备量化模型训练；梯度检查点以额外计算换取更少的激活显存。
     base_model = prepare_model_for_kbit_training(base_model, use_gradient_checkpointing=True)
+    # 训练时关闭生成用的 KV 缓存，配合梯度检查点使用。
+    base_model.config.use_cache = False
 
 ```
 
-PEFT 库提供的辅助函数，用于让已经以低比特量化方式加载的模型，为后续微调做好准备
+PEFT 库提供的辅助函数，冻结基模权重，准备低比特模型微调
 
 - 冻结现有的基础模型参数
 - 调整部分非量化参数的精度
-- 启用梯度检查点等训练准备use_gradient_checkpointing=True
+- use_gradient_checkpointing=True 
+  - 在 Forward 时少保存一些中间激活值，等到 Backward 时再重新计算
+- Gradient Checkpointing 主要针对训练阶段需要反向传播、保存激活值的特点，用重计算降低显存；
+- KV Cache 主要针对自回归推理阶段反复使用历史 Token 的特点，通过缓存历史 K、V 减少重复计算，提高推理效率。
+- 所以这两种通常配合使用，训练阶段使用梯度检查点，用增加计算量的代价来降低显存消耗；推理阶段用缓存KV的代价来提高推理效率
 
-  它会让模型在反向传播时重新计算部分中间结果，以增加计算量换取更低的显存占用。同时，按模型实现及检查点配置，设置必要的输入梯度支持，使梯度能够传到后续的 LoRA 参数。
+```python
+def train(records: list[dict], model, processor, *, epochs: int = 1,
+          accumulation: int = 4, learning_rate: float = 1e-4, seed: int = 20260520,
+          max_steps: int = 0) -> list[float]:
+```
+
+- `train_records`：训练样本列表，本次小样本流程是 19 张图片及其 Caption。
+- `model`：已经挂载 LoRA 的模型。
+- `processor`：模型配套的文本和图像处理器。
+- `epochs=1`：训练集遍历一轮。
+- `accumulation=4`：每处理一个样本累积梯度，通常每 4 个样本更新一次参数；最后不足 4 个的剩余样本也会触发一次更新。
+- `learning_rate=1e-4`：学习率。
+- `seed=settings.seed`：使用配置中的随机种子。
+- 没有传 `max_steps`，因此采用默认值 `0`，不额外限制优化器更新次数。
+
+
 
 ### Step 7 · 监督标签检查：只对 Assistant Caption 计算 Loss
 
@@ -518,8 +530,6 @@ PEFT 库提供的辅助函数，用于让已经以低比特量化方式加载的
 
 ![Part 2 Step 7 - 1](images/part2-step-07-01.png)
 
-[//]: # (待添加：有效监督文本、Token 检查截图与实践评论。)
-
 ### Step 8 · 单样本 Forward / Loss / Backward（不更新权重）
 
 按需开启 `RUN_GRADIENT_SMOKE_TEST`，用单样本检查 Loss 和 LoRA 梯度是否有限、是否存在非零梯度。这一步不执行 `optimizer.step()`，不进行权重更新。
@@ -527,8 +537,6 @@ PEFT 库提供的辅助函数，用于让已经以低比特量化方式加载的
 [Notebook 02 - Step 8](notebooks/02_multimodal_model_training_inference.ipynb#step-8--单样本-forward--loss--backward不更新权重)
 
 ![Part 2 Step 8 - 1](images/part2-step-08-01.png)
-
-[//]: # (待添加：单样本 Loss、梯度检查截图与实践评论；若跳过可注明。)
 
 ### Step 9 · 使用 19 张图片执行 QLoRA，并保存 Adapter
 
@@ -540,8 +548,6 @@ PEFT 库提供的辅助函数，用于让已经以低比特量化方式加载的
 
 ![Part 2 Step 9 - 2](images/part2-step-09-02.png)
 
-[//]: # (待添加：训练日志、Loss、耗时、显存及 Adapter 保存结果截图与实践评论。)
-
 ### Step 10 · 同图、同 Prompt 微调后推理与结果对比
 
 保存 LoRA Adapter 后，使用相同图片、Prompt 和生成参数执行微调后推理，保存 `inference_comparison.json`。对照参考 Caption、Base 和 LoRA 输出，记录具体变化；小样本同图对比不能证明新场景泛化能力提升。
@@ -549,8 +555,6 @@ PEFT 库提供的辅助函数，用于让已经以低比特量化方式加载的
 [Notebook 02 - Step 10](notebooks/02_multimodal_model_training_inference.ipynb#step-10--同图同-prompt-微调后推理与结果对比)
 
 ![Part 2 Step 10 - 1](images/part2-step-10-01.png)
-
-[//]: # (待添加：同图 Base / LoRA 输出对比截图与实践评论。)
 
 ## 5. 实测结果与评价边界
 
@@ -565,11 +569,13 @@ PEFT 库提供的辅助函数，用于让已经以低比特量化方式加载的
 | 训练配置 | 1 Epoch，梯度累积 4，`1e-4` 学习率 |
 
 **GPT 参考 Caption**：
+
 > A city street approaches a signalized intersection with marked crosswalks, cars ahead, and pedestrians on both sidewalks. Multi-story brick buildings line the road under a cloudy daytime sky.
 
 **微调前**：输出了建筑、车辆、行人、交通灯、天气等 7 条列表，最后因 `max_new_tokens=128` 被截断。
 
 **微调后**：
+
 > A busy urban street with brick buildings on both sides, traffic lights, pedestrians, and vehicles, with a cloudy sky overhead.
 
 这证明实际的**工程数据链路 / QLoRA 风格适配**已在 DSW 走通，但相似连续帧的 19/1 验证**无法证明**跨夜间、雨天或不同道路的泛化提升。
@@ -577,7 +583,7 @@ PEFT 库提供的辅助函数，用于让已经以低比特量化方式加载的
 ## 6. 常见错误与排查
 
 - **找不到变量、模型或 Processor**：Kernel 重启会清空内存；从 Notebook Step 1 顺序运行，或复用已经保存的 JSONL、模型缓存和 Adapter。
-- **`NOT configured`**：检查 `.env` 文件是否放在仓库根目录，以及变量名是否与 [.env.example](.env.example) 一致。Notebook 仅确认配置非空；DLF 真正的网络/权限验证在 Notebook 01 Step 4。
+- `NOT configured`：检查 `.env` 文件是否放在仓库根目录，以及变量名是否与 [.env.example](.env.example) 一致。Notebook 仅确认配置非空；DLF 真正的网络/权限验证在 Notebook 01 Step 4。
 - **DLF AccessDenied / Trusted VPC / DatabaseNoPermission**：检查 REST API 开通、Warehouse、OSS 与 RAM 授权、DSW 网络环境。
 - **LoRA 重复挂载**：不要在已挂 Adapter 的模型上重复调用 `get_peft_model()`；重启 Kernel 后重新加载基础模型和 Adapter。
 
