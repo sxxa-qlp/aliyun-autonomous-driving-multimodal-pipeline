@@ -1,16 +1,12 @@
 # 阿里云 PAI 平台自动驾驶数据处理、训练与推理实践
 
-> 文章来源：[Notion 实践笔记](https://app.notion.com/p/aliyun-PAI-417790d88f7f80778eabc681a20c9507)，整理为 GitHub 可阅读的 Markdown。原文保留了部分 DSW 实验过程及代码；仓库中的 [Notebook 01](notebooks/01_multimodal_data_processing.ipynb) 与 [Notebook 02](notebooks/02_multimodal_model_training_inference.ipynb) 是可运行版本。
->
-> **公开安全提示**：RAM AccessKey、API Key 等凭证仅保存在本地 `.env`，请勿提交到 GitHub。Notion 图片已保存至本仓库 images/ 目录，并在 README 中使用相对路径显示；公开仓库请勿包含未脱敏的密钥。
-
 ## 背景介绍
 
 选择阿里云的PAI平台学习，是因为我是阿里云ECS的重度用户，感觉aliyun平台的易用性和生态丰富性以及模型方面相比腾讯、华为、京东云都好太多了（毕竟aliyun对标的AWS）。
 
 两个官方教程包括：
 
-- 学习并熟悉自动驾驶图象的多模态数据处理pipeline 
+- 学习并熟悉自动驾驶图像的多模态数据处理pipeline 
 
   **Multimodal Data Processing of Autonomous Driving Images**：前视图像 → Paimon → Caption / Metadata → Embedding → 向量检索。
 
@@ -22,13 +18,13 @@
 
 注意：
 
-1. **第二个教程要在第一个完成的基础上进行**，否则会因为没有paimon数据表导致无法训练。
-2. 数据处理教程的目的是创建一个paimon来描述多模态数据，包括：
+1. **第二个教程要在第一个完成的基础上进行**，否则会因为没有Paimon数据表导致无法训练。
+2. 数据处理教程的目的是创建一个Paimon来描述多模态数据，包括：
    1. Caption（场景描述）
-   2. Metadata（场景结构化描述json data）
-   3. embeding（图片经过embedding模型返回来的高维特征向量）
+   2. Metadata（场景结构化描述JSON data）
+   3. embedding（图片经过embedding模型返回来的高维特征向量）
 
-   教程中获取这个多模态数据需要用到datawork+livy gateway+EMR访问dlf/paimon，这些是阿里云数据中台的架构【TODO：留个坑，有时间去研究下这个架构】，通过datawork平台利用livy gateway接口提交计算任务给EMR计算引擎，EMR会访问指定oss或者dlf/paimon的数据。好处是EMR内嵌了ai function可以方便的通过接口获得Caption + Metadata + embending。
+   教程中获取这个多模态数据需要用到DataWorks+Livy Gateway+EMR访问DLF/Paimon，这些是阿里云数据中台的架构【TODO：留个坑，有时间去研究下这个架构】，通过DataWorks平台利用Livy Gateway接口提交计算任务给EMR计算引擎，EMR会访问指定OSS或者DLF/Paimon的数据。好处是EMR内嵌了AI Function可以方便的通过接口获得Caption + Metadata + embedding。
 
    但缺点也很明显，这套“屠龙技”对于这个教程实在是杀鸡用牛刀了，毕竟我们重点也不在这个地方。所以我们通过如下方法获取：
 
@@ -60,11 +56,11 @@
 3. 在工作空间中进入 **交互式建模（DSW）**，创建实例。
 4. 选择兼容 CUDA 的镜像 / Python 3.11 环境；配置系统云盘。
 
-目前的活动是aliyun PAI平台连续三个月，每月送250计算时，合计750cu。这个计算时是用来租dsw机器的计费单位，比如750cu大致可使用**ecs.gn7i-c8g1.2xlarge**，即**8c30g A10-24g**独显的dsw机器约107h，优先选这个配置的机器，因为独显高且消耗额度少，而且支持FP16 BF16 TF32,相比V100多支持后者，因为A系列是SM8.6 cuda，gpu的架构大升级。
+目前的活动是aliyun PAI平台连续三个月，每月送250计算时，合计750cu。这个计算时是用来租DSW机器的计费单位，比如750cu大致可使用**ecs.gn7i-c8g1.2xlarge**，即**8c30g A10-24g**独显的DSW机器约107h，优先选这个配置的机器，因为独显高且消耗额度少，而且支持FP16 BF16 TF32,相比V100多支持后者，因为A系列是SM8.6 CUDA，GPU的架构大升级。
 
 ![Notion 原文配图 02](images/notion-02.png)
 
-选择不同gpu型号，可选的镜像已经是筛选之后的，也就是gpu的驱动和cuda肯定是兼容的。我们只用选择项目要求的pytorch、cuda、py版本对应的镜像就好了，很省心。比如：pytorch:2.9.1-gpu-py311-cu126-ubuntu24.04-accl。【TODO：留个坑，后面写一个pytorch cuda gpu driver的兼容链文档】
+选择不同GPU型号，可选的镜像已经是筛选之后的，也就是GPU的驱动和CUDA肯定是兼容的。我们只用选择项目要求的PyTorch、CUDA、py版本对应的镜像就好了，很省心。比如：pytorch:2.9.1-gpu-py311-cu126-ubuntu24.04-accl。【TODO：留个坑，后面写一个PyTorch CUDA GPU driver的兼容链文档】
 
 ![Notion 原文配图 03](images/notion-03.png)
 
@@ -76,19 +72,19 @@
 
 [https://help.aliyun.com/zh/pai/product-overview/estimation-of-the-required-video-memory-for-the-model?spm=a2c4g.11186623.help-menu-30347.d012.648d4c4bCXymYa](https://help.aliyun.com/zh/pai/product-overview/estimation-of-the-required-video-memory-for-the-model?spm=a2c4g.11186623.help-menu-30347.d_0_1_2.648d4c4bCXymYa)
 
-**领取emr试用链接**
+**领取EMR试用链接**
 
 [https://free.aliyun.com/?utmsource=chatgpt.com&searchKey=EMR](https://free.aliyun.com/?utm_source=chatgpt.com&searchKey=EMR)
 
-### 2.ram给dlf授权
+### 2.RAM给DLF授权
 
-1. 在 [RAM 控制台](https://ram.console.aliyun.com/) 给 **RAM 角色授权DLF（data lake formation），id和key只在创建的时候显示一次，需要留存，在dsw里访问dlf的时候会用到**。
+1. 在 [RAM 控制台](https://ram.console.aliyun.com/) 给 **RAM 角色授权DLF（Data Lake Formation），ID和Key只在创建的时候显示一次，需要留存，在DSW里访问DLF的时候会用到**。
 
    ![Notion 原文配图 04](images/notion-04.png)
 
    ![Notion 原文配图 05](images/notion-05.png)
 
-2. 回到DLF首页同步ram授权，注意地域要确认和dsw区域一致。我的dsw在杭州1，这里用上海1演示。
+2. 回到DLF首页同步RAM授权，注意地域要确认和DSW区域一致。我的DSW在杭州1，这里用上海1演示。
 
    ![Notion 原文配图 06](images/notion-06.png)
 
@@ -96,7 +92,7 @@
 
    ![Notion 原文配图 07](images/notion-07.png)
 
-   对这个dlf数据目录里面的paimon表授权读写操作
+   对这个DLF数据目录里面的Paimon表授权读写操作
 
    ![Notion 原文配图 08](images/notion-08.png)
 
@@ -107,7 +103,7 @@
 ### 3.准备模型密钥
 
 1. **视觉标注**：使用支持 OpenAI Responses 图像输入的视觉模型 API，比如gpt-6.1-sol
-2. **多模态 Embedding**：通义 `tongyi-embedding-vision-plus`，使用百炼 **DashScope 原生多模态 Embedding 接口**，配置 `EMBEDDING_API_URL` 和 `EMBEDDING_API_KEY`；本次结果为 1152 维。注意，这里必须使用百炼提供的 **DashScope 接口**，[官方](https://docs.bailian.console.aliyun.com/zh/model-studio/embedding#:~:text=%E5%A4%9A%E6%A8%A1%E6%80%81%E7%8B%AC%E7%AB%8B%E5%90%91%E9%87%8F%E5%8C%96%E5%8A%9F%E8%83%BD%E9%9C%80%E8%A6%81%E9%80%9A%E8%BF%87%20DashScope%20SDK%20%E6%88%96%20API%20%E6%9D%A5%E8%B0%83%E7%94%A8%EF%BC%8C%E4%B8%8D%E6%94%AF%E6%8C%81%20OpenAI%20%E5%85%BC%E5%AE%B9%E6%8E%A5%E5%8F%A3%E8%B0%83%E7%94%A8%E6%88%96%E5%9C%A8%E6%8E%A7%E5%88%B6%E5%8F%B0%E7%9B%B4%E6%8E%A5%E4%BD%BF%E7%94%A8%E3%80%82)文档说了这里不支持openai兼容url。
+2. **多模态 Embedding**：通义 `tongyi-embedding-vision-plus`，使用百炼 **DashScope 原生多模态 Embedding 接口**，配置 `EMBEDDING_API_URL` 和 `EMBEDDING_API_KEY`；本次结果为 1152 维。注意，这里必须使用百炼提供的 **DashScope 接口**，[官方](https://docs.bailian.console.aliyun.com/zh/model-studio/embedding#:~:text=%E5%A4%9A%E6%A8%A1%E6%80%81%E7%8B%AC%E7%AB%8B%E5%90%91%E9%87%8F%E5%8C%96%E5%8A%9F%E8%83%BD%E9%9C%80%E8%A6%81%E9%80%9A%E8%BF%87%20DashScope%20SDK%20%E6%88%96%20API%20%E6%9D%A5%E8%B0%83%E7%94%A8%EF%BC%8C%E4%B8%8D%E6%94%AF%E6%8C%81%20OpenAI%20%E5%85%BC%E5%AE%B9%E6%8E%A5%E5%8F%A3%E8%B0%83%E7%94%A8%E6%88%96%E5%9C%A8%E6%8E%A7%E5%88%B6%E5%8F%B0%E7%9B%B4%E6%8E%A5%E4%BD%BF%E7%94%A8%E3%80%82)文档说了这里不支持OpenAI兼容URL。
 
    ![Notion 原文配图 10](images/notion-10.png)
 
@@ -135,8 +131,6 @@ aliyun-autonomous-driving-multimodal-pipeline/
     └── 02_multimodal_model_training_inference.ipynb
 ```
 
-> 这两个 Notebook 是**自包含实现**，但并不是“零依赖”：依然需要安装第三方 Python 库，并提供 nuScenes 数据、已存在的 Paimon 表或导出的 JSONL。Notebook 02 无需运行 Notebook 01 的 Python 内存变量。
-
 ## 2. 阿里云用户准备工作（控制台操作）
 
 以下操作是在**阿里云控制台**完成的，区别于后续 DSW Notebook 中运行的代码。
@@ -152,7 +146,7 @@ aliyun-autonomous-driving-multimodal-pipeline/
 
 云端入口：[PAI](https://pai.console.aliyun.com/) · [DLF 2.0](https://dlf-next.console.aliyun.com/) · [RAM](https://ram.console.aliyun.com/) · [百炼](https://bailian.console.aliyun.com/)。控制台页面、资源与计费可能随地域及账号权限变化。
 
-**原教程与本仓库的差异**：原阿里云案例包含 EMR Serverless Spark、DLC 多卡训练和 EAS 部署。为了降低成本，我们实际走通的是 **DSW + PyPaimon REST + OpenAI 兼容视觉 API + 百炼 Embedding + DSW 单卡 QLoRA**，未验证的 DLC / EAS 路线不计入本仓库已实现功能。
+**原教程与本仓库的差异**：原阿里云案例包含 EMR Serverless Spark、DLC 多卡训练和 EAS 部署。为了降低成本，我们实际走通的是 **DSW + PyPaimon REST + OpenAI 兼容视觉 API + 百炼 Embedding + DSW 单卡 QLoRA**。
 
 ## 3. Part 1：Multimodal Data Processing of Autonomous Driving Images
 
@@ -196,7 +190,7 @@ aliyun-autonomous-driving-multimodal-pipeline/
 
 ### Step 1 · 加载 `.env`（重启 Kernel 后需要执行）
 
-**可调参数**：`candidates` 是仓库根目录的搜索位置列表，自定义目录结构时可补充路径。`load_dotenv(..., override=False)` 保留已有进程环境变量；改为 `True` 则允许 `.env` 覆盖同名变量。修改 `.env` 后建议重启 Kernel，从本步骤重新加载。
+**可调参数**：`candidates` 是仓库根目录的搜索位置列表，自定义目录结构时可补充路径。`load_dotenv(..., override=False)` 保留已有进程环境变量；改为 `True` 则允许 `.env` 覆盖同名变量。修改 `.env` 后建议重启 Kernel，需要再运行本步骤重新加载参数。
 
 [Notebook 01 - Step 1](notebooks/01_multimodal_data_processing.ipynb#step-1--加载-env重启-kernel-后执行)
 
@@ -228,7 +222,7 @@ aliyun-autonomous-driving-multimodal-pipeline/
 
 **可调参数**：`.env` 中 `USE_FULL_MINI=false`（默认）时，优先从 sweeps、其次从 samples 选择同日志连续 20 张图；`true` 时合并 samples 和 sweeps 的全部 CAM\_FRONT 图片，按文件名去重。全量模式使用 `_full_mini` 后缀表及独立标注 CSV。
 
-全量模式后续生成视觉capture和Embedding 的费用更高而且需要等的时间比较长，我额度有限先走小批量跑通流程，后面等额度刷新了在跑全量的。
+全量模式后续生成 Caption 和Embedding 的费用更高而且需要等的时间比较长，我额度有限先走小批量跑通流程，后面等额度刷新了再跑全量的。
 
 [Notebook 01 - Step 3.2](notebooks/01_multimodal_data_processing.ipynb#step-32--选择全量-mini-或-20-张连续-cam_front-图片)
 
@@ -240,7 +234,7 @@ aliyun-autonomous-driving-multimodal-pipeline/
 
 ![Notion 原文配图 16](images/notion-16.png)
 
-数据湖连接正常，一个生图表，一个增强表
+数据湖连接正常，一个原始图像表，一个增强表
 
 ### Step 5 · 写入原始 Paimon 表并回读图片
 
@@ -284,13 +278,13 @@ aliyun-autonomous-driving-multimodal-pipeline/
 
 无主键 Append 表不支持通过追加同 ID 行来更新。先将**整表备份为 Parquet**，计算向量，再明确 Overwrite，最后重新读取校验。期间不要并发写入。
 
-**可调参数**：`RUN_VECTOR_BACKFILL=True` 执行批量向量回填，`False` 跳过；调用参数 `confirm_overwrite=True` 明确允许覆盖，设为 `False` 会在需要覆盖时中止。备份保存在 `.env` 的 `WORK_DIR/backups`。执行顺序为备份、生成向量、Overwrite、回读校验；已有完整向量时跳过，空表/重复 ID/部分已有向量时中止。**会修改云端数据并可能产生大量 Embedding 费用**，请确认目标表、无并发写入且备份空间充足。
+**可调参数**：`RUN_VECTOR_BACKFILL=True` 执行批量向量回填，`False` 跳过；调用参数 `confirm_overwrite=True` 明确允许覆盖，设为 `False` 会在需要覆盖时中止。备份保存在 `.env` 的 `WORK_DIR/backups`。执行顺序为备份、生成向量、Overwrite、回读校验；已有完整向量时会跳过。
 
 [Notebook 01 - Step 9](notebooks/01_multimodal_data_processing.ipynb#step-9--安全回填-paimon-向量字段)
 
 ![Notion 原文配图 20](images/notion-20.png)
 
-吧embedding回填到paimon表里面，至此，enrichment table就完成了
+把embedding回填到Paimon表里面，至此，enrichment table就完成了
 
 ### Step 10 · 以图搜图 / 以文搜图：余弦 Top-5
 
@@ -306,7 +300,7 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 #### Step 10.2 · 以文搜图：自然语言查询 Top-5
 
-**可调参数**：`RUN_TEXT_RETRIEVAL=True` 执行文本检索，`False` 跳过；`query` 设置自然语言查询内容，`cosine_topk(..., k=5)` 的 `k` 控制返回数量。使用 Step 8 的 Embedding 配置和 Step 9 的图像向量；文本向量也调用的是tongyi的vison模型，输出维度也是1152，这样才能在同维语义空间通过余弦比较相似
+**可调参数**：`RUN_TEXT_RETRIEVAL=True` 执行文本检索，`False` 跳过；`query` 设置自然语言查询内容，`cosine_topk(..., k=5)` 的 `k` 控制返回数量。使用 Step 8 的 Embedding 配置和 Step 9 的图像向量；文本向量也调用的是Tongyi的vision模型，输出维度也是1152，这样才能在同维语义空间通过余弦比较相似
 
 [Notebook 01 - Step 10.2](notebooks/01_multimodal_data_processing.ipynb#step-102--以文搜图自然语言查询-top-5)
 
@@ -448,7 +442,7 @@ NumPy 进行精确余弦相似度检索，未使用 Milvus/ANN，这个就是；
 
 使用未加载 LoRA 的基础模型生成基线，保存为 `baseline_prediction.json`。记录验证图片、Prompt 和生成参数，后续微调推理使用相同配置。
 
-先装填processor需要的对话模板，主要是将提示词塞进去，然后把图片和文本通过列表的形式转换为pytorch的张量类型，移到GPU
+先装填processor需要的对话模板，主要是将提示词塞进去，然后把图片和文本通过列表的形式转换为PyTorch的张量类型，移到GPU
 
 ```python
     # 按模型的对话模板组织文本，并添加供模型续写回答的起始标记。
@@ -469,7 +463,7 @@ eval模式主要控制 Dropout、BatchNorm 等层的工作方式，
 
 inference_mode使用推理模式，不会进行梯度更新
 
-这里用的是qwen vl instrcut，他的语言模型是自回归decode only ，所以输出的结果包含输入和输出，所以需要把结果包含的输入内容（这里面包括input里面的，像image和文本信息）截断。
+这里用的是Qwen2-VL Instruct，它的语言模型是自回归Decoder-only ，所以输出的结果包含输入和输出，所以需要把结果包含的输入内容（这里面包括input里面的，像image和文本信息）截断。
 
 自指的是模型自己之前生成的结果，也成为后续预测的依据
 
@@ -481,7 +475,7 @@ inference_mode使用推理模式，不会进行梯度更新
 
 ### Step 6 · QLoRA：参数高效微调与 Adapter 防重复挂载
 
-LoRA 的思路是：基础模型的大部分参数保持不变，只训练少量新增参数。这个lora理解成一个adapter，外挂在基模的后面。
+LoRA 的思路是：基础模型的大部分参数保持不变，只训练少量新增参数。这个LoRA理解成一个adapter，外挂在基模的后面。
 
 需要import这些模块
 
@@ -495,7 +489,7 @@ LoRA 的思路是：基础模型的大部分参数保持不变，只训练少量
 
 [//]: # (待添加：LoRA 配置、可训练参数数量截图与实践评论。)
 
-lora文件夹里面包含：
+LoRA文件夹里面包含：
 
 `adapter_model.safetensors`：保存训练得到的 A、B 矩阵等权重。
 
@@ -566,7 +560,7 @@ PEFT 库提供的辅助函数，用于让已经以低比特量化方式加载的
 | 划分 | 19 张训练 / 1 张验证 |
 | Embedding | tongyi-embedding-vision-plus；1152 维 |
 | 基础模型 | Qwen2-VL-2B-Instruct |
-| 训练 | V100 16GB；4-bit NF4 + FP16；QLoRA `r=8`, `alpha=16` |
+| 训练 | A10 24GB；4-bit NF4 + FP16；QLoRA `r=8`, `alpha=16` |
 | 可训练参数 | 2,179,072（约 0.0985%） |
 | 训练配置 | 1 Epoch，梯度累积 4，`1e-4` 学习率 |
 
