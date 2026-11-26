@@ -6,10 +6,10 @@
 
 两个官方教程包括：
 
-- 学习并熟悉自动驾驶图像的多模态数据处理pipeline 
+- [学习并熟悉自动驾驶图像的多模态数据处理pipeline](https://pai.console.aliyun.com/?regionId=cn-hangzhou&spm=5176.ecscore_server-lite.console-base_search-panel.dvisited_learn.521b4df5PrhLU6&workspaceId=678701#/dsw-gallery-workspace/preview/aliyun/dataWorks/MultimodalDataProcessingofAutonomousDrivingImages?desc%5B0%5D=%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6&category=&pageNum=1&searchValue=%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6&selectedHotword=)
 
   **Multimodal Data Processing of Autonomous Driving Images**：前视图像 → Paimon → Caption / Metadata → Embedding → 向量检索。
-- 学习并熟悉多模态数据下的模型训练与推理
+- [学习并熟悉多模态数据下的模型训练与推理](https://pai.console.aliyun.com/?regionId=cn-hangzhou&spm=5176.ecscore_server-lite.console-base_search-panel.dvisited_learn.521b4df5PrhLU6&workspaceId=678701#/dsw-gallery-workspace/preview/aliyun/dataWorks/MultimodalModelTrainingInferenceInAutonomousDriving?desc%5B0%5D=%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6&category=&pageNum=1&searchValue=%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6&selectedHotword=)
 
   **Multimodal Model Training & Inference Pipeline**：Paimon → 固定训练/验证划分 → Qwen2-VL 基线推理 → QLoRA → 同图推理对比。
 
